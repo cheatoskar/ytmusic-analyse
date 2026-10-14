@@ -70,6 +70,15 @@ _TITLE_SEP = re.compile(r"\s+[-–—]\s+")
 _ARTIST_SPLIT = re.compile(r"\s*,\s*|\s+(?:feat\.?|ft\.?|featuring)\s+", re.I)
 
 
+def artist_from_title(title: str) -> str | None:
+    """'Luttrell, X - Song (Remix)' -> 'Luttrell'; None, wenn der Titel kein 'Kuenstler - Titel' ist."""
+    parts = _TITLE_SEP.split(title or "", maxsplit=1)
+    if len(parts) != 2:
+        return None
+    names = [n.strip() for n in _ARTIST_SPLIT.split(parts[0]) if n.strip()]
+    return names[0] if names else None
+
+
 def prepare_songs(songs: list[dict]) -> tuple[list[dict], dict]:
     """Bereinigt die Rohliste fuer die Auswertung.
 

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from itertools import combinations
 from pathlib import Path
 
-from .common import DATA, OUT, WEB, cache_dir, load_json, prepare_songs
+from .common import DATA, OUT, WEB, artist_from_title, cache_dir, load_json, prepare_songs
 from .genres import MACRO_NAMES, UNKNOWN, clean_tags, macro_genre
 
 LIKED_PLAYLIST_NAME = re.compile(r"lik|mag|gef[aä]ll|favorit", re.I)
@@ -274,10 +274,15 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         for p in plays:
             meta[p["v"]] = (p["title"], p["artist"])
         song_by_id = {s["videoId"]: s for s in songs}
-        # Bei Liked Songs den echten Hauptkuenstler nehmen, sonst den Kanal (oft ein Label wie Anjunadeep)
-        artist_plays = Counter(
-            song_by_id[p["v"]]["artists"][0]["name"] if p["v"] in song_by_id and song_by_id[p["v"]]["artists"]
-            else p["artist"] for p in plays if p["v"] in song_by_id or p["artist"])
+        # Liked Song: echter Hauptkuenstler. Sonst Kuenstler aus 'Kuenstler - Titel', erst zuletzt der Kanal
+        # (der ist oft ein Label wie Anjunadeep).
+        def play_artist(p):
+            s = song_by_id.get(p["v"])
+            if s and s["artists"]:
+                return s["artists"][0]["name"]
+            return artist_from_title(p["title"]) or p["artist"]
+
+        artist_plays = Counter(a for a in map(play_artist, plays) if a)
 
         def label(v):
             if v in song_by_id:
