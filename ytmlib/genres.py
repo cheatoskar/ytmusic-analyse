@@ -7,23 +7,26 @@ from __future__ import annotations
 
 # Pro Tag gewinnt das LAENGSTE passende Stichwort: "melodic techno" -> Melodic House & Techno, nicht Techno.
 STYLES: list[tuple[str, list[str]]] = [
-    ("Melodic House & Techno", ["melodic techno", "melodic house", "organic house", "indie dance", "afterlife",
-                                "anjunadeep"]),
+    # Deep und Melodic House lassen sich ueber Last.fm-Tags kaum sauber trennen: bewusst eine Gruppe
+    ("Deep & Melodic House", ["deep house", "melodic house", "melodic techno", "organic house", "indie dance",
+                              "afterlife", "anjunadeep", "chill house", "lounge", "deep tech"]),
     ("Progressive House", ["progressive house", "progressive", "prog house"]),
     ("Trance", ["trance", "uplifting trance", "progressive trance", "vocal trance", "psytrance", "psychedelic trance",
                 "goa"]),
-    ("Deep House", ["deep house", "chill house", "lounge", "deep tech"]),
     ("Afro House", ["afro house", "afro tech", "amapiano", "afrobeat", "afrobeats", "afro"]),
     ("House", ["house", "tech house", "nu disco", "disco", "french house", "funky house", "garage house"]),
     ("Techno", ["techno", "minimal", "peak time", "dub techno", "acid"]),
     ("Hard Techno & Schranz", ["hard techno", "schranz", "hardstyle", "hardcore", "industrial techno", "rave",
-                               "gabber", "hard dance", "hardtekk", "tekk"]),
+                               "gabber", "hard dance", "hardtekk", "tekk", "hardtek", "raggatek",
+                               "tekno", "frenchcore", "hard trance"]),
     ("Drum & Bass / Bass", ["drum and bass", "drum & bass", "drum n bass", "dnb", "liquid funk", "dubstep",
                             "bass music", "jungle", "breakbeat", "breaks", "uk garage", "future garage", "riddim"]),
     ("Phonk", ["phonk", "drift phonk"]),
     ("EDM & Big Room", ["edm", "big room", "electro house", "future house", "future bass", "dance", "electro",
                         "tropical house", "melbourne bounce", "slap house"]),
-    ("Chill & Downtempo", ["chillout", "chill out", "downtempo", "ambient", "lo-fi", "lofi", "chillwave", "chill",
+    ("Synthwave & Retro", ["synthwave", "retrowave", "chillwave", "outrun", "darksynth", "vaporwave", "synthpop",
+                           "synth pop", "synth-pop", "new wave", "chillsynth"]),
+    ("Chill & Downtempo", ["chillout", "chill out", "downtempo", "ambient", "lo-fi", "lofi", "chill",
                            "trip-hop", "trip hop", "idm", "electronica"]),
     ("Pop", ["pop", "dance pop", "electropop", "schlager", "boy band", "girl group"]),
     ("Hip-Hop/Rap", ["hip hop", "hip-hop", "hiphop", "rap", "trap", "drill", "grime", "boom bap"]),
@@ -33,7 +36,7 @@ STYLES: list[tuple[str, list[str]]] = [
     ("Folk/Singer-Songwriter", ["folk", "singer-songwriter", "acoustic", "americana", "country"]),
     ("Jazz/Classical/Film", ["jazz", "classical", "klassik", "soundtrack", "score", "instrumental", "piano",
                            "orchestra", "blues", "video game"]),
-    ("Electronic (other)", ["electronic", "elektronisch", "synthwave", "synthpop"]),
+    ("Electronic (other)", ["electronic", "elektronisch"]),
 ]
 STYLE_NAMES = [m for m, _ in STYLES]
 UNKNOWN = "Unknown"
@@ -69,14 +72,21 @@ def style_of_tag(tag: str) -> str | None:
     return None
 
 
+# Allgemeine Tags zaehlen nur, wenn kein genauerer Stil-Tag vorhanden ist
+# (Lane 8: "house, electronic, deep house, melodic house" -> Deep & Melodic House, nicht House).
+GENERIC_TAGS = {"house", "electronic", "electronica", "elektronisch", "dance", "electro", "edm", "club"}
+
+
 def macro_genre(tags: list[str]) -> str:
-    """Gewichtet nach Rang: der erste Tag zaehlt am meisten. Generisches 'electronic' zaehlt nur halb."""
-    scores: dict[str, float] = {}
+    """Gewichtet nach Rang: der erste Tag zaehlt am meisten. Genaue Tags schlagen allgemeine."""
+    specific: dict[str, float] = {}
+    generic: dict[str, float] = {}
     for rank, tag in enumerate(tags[:8]):
         name = style_of_tag(tag)
         if name:
-            w = 1 / (1 + rank) * (0.5 if name == "Electronic (other)" else 1)
-            scores[name] = scores.get(name, 0) + w
+            target = generic if tag in GENERIC_TAGS else specific
+            target[name] = target.get(name, 0) + 1 / (1 + rank)
+    scores = specific or generic
     if not scores:
         return UNKNOWN
     # bei Gleichstand gewinnt der in STYLES zuerst genannte (spezifischere) Stil

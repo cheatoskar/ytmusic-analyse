@@ -10,7 +10,7 @@ import statistics
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
-from itertools import combinations
+from itertools import combinations, permutations
 from pathlib import Path
 
 from .common import DATA, LANG, OUT, WEB, artist_from_title, cache_dir, load_json, prepare_songs, tr
@@ -132,6 +132,31 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
             "begin": mb.get("begin"),
             "related_raw": [r["id"] for r in info.get("related") or []],
         })
+
+    # Kuenstler ohne Tags: Stil der Nachbarn uebernehmen (Features doppelt gewichtet, dazu "verwandt" laut YT Music).
+    # Nur aus direkt bekannten Stilen ableiten, nicht aus bereits abgeleiteten, und nur bei klarer Mehrheit.
+    neighbours: dict[str, Counter] = defaultdict(Counter)
+    for s in songs:
+        for a, b in permutations({akey(x) for x in s["artists"]}, 2):
+            neighbours[a][b] += 2
+    for k, rec in artists.items():
+        for rid in rec["related_raw"]:
+            if rid in artists:
+                neighbours[k][rid] += 1
+                neighbours[rid][k] += 1
+    known = {k for k, r in artists.items() if r["genre"] != UNKNOWN}
+    for k, rec in artists.items():
+        rec["genre_inferred"] = False
+        if rec["genre"] != UNKNOWN:
+            continue
+        votes = Counter()
+        for o, w in neighbours[k].items():
+            if o in known:
+                votes[artists[o]["genre"]] += w
+        if votes:
+            g, w = votes.most_common(1)[0]
+            if w >= 2 and w >= 0.5 * sum(votes.values()):
+                rec["genre"], rec["genre_inferred"] = g, True
 
     # ---------- Songs anreichern ----------
     liked_ids_all = {s["videoId"] for s in songs}
@@ -273,6 +298,7 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         "median_year": int(statistics.median(years)) if years else None,
         "year_known_pct": _share(len(years), n),
         "genre_known_pct": _share(n - genre_counts.get(UNKNOWN, 0), n),
+        "genre_inferred_pct": _share(sum(1 for s in songs if s["keys"] and artists[s["keys"][0]]["genre_inferred"]), n),
         "median_subs": int(statistics.median(weighted_subs)) if weighted_subs else None,
         "top_artists": [[artists[k]["name"], c, artists[k]["genre"]] for k, c in main_artist_counts.most_common(30)],
         "genres": sorted(([g, c] for g, c in genre_counts.items() if g != UNKNOWN), key=lambda x: -x[1])
@@ -421,7 +447,8 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         "stats": stats,
         "communities": comm_info,
         "artists": [{"n": r["name"], "c": len(r["songs"]), "g": r["genre"], "t": r["tags"][:5],
-                     "s": r["subs"], "co": r["country"], "p": r["plays"], "cm": r.get("community", -1), "pl": r["playlist"]}
+                     "s": r["subs"], "co": r["country"], "p": r["plays"], "cm": r.get("community", -1), "pl": r["playlist"],
+                     "gi": int(r["genre_inferred"])}
                     for r in (artists[k] for k in keys)],
         "edges": [[kidx[a], kidx[b], e["feat"], e["related"], e["tags"]] for (a, b), e in edges.items()],
         "songs": [{"t": s["title"], "a": [kidx[k] for k in s["keys"]], "al": s.get("album"), "y": s.get("year"),

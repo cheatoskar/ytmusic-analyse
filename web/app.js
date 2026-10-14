@@ -224,7 +224,7 @@
         [pctv(S.explicit_pct), t('k_explicit'), ''],
         [pctv(S.collab_pct), t('k_collab'), t('k_collab_s')],
         [compact(S.median_subs), t('k_main'), t('k_main_s')],
-        [pctv(S.genre_known_pct), t('k_genre'), t('k_genre_s')],
+        [pctv(S.genre_known_pct), t('k_genre'), S.genre_inferred_pct ? t('k_genre_inf', { p: pctv(S.genre_inferred_pct) }) : t('k_genre_s')],
       ];
       const P = S.plays;
       if (P) {
@@ -509,7 +509,7 @@
       const songs = songsByArtist[n.i].map(i => SONGS[i]).sort((a, b) => b.p - a.p || a.o - b.o);
       detail.innerHTML = `
         <h4>${esc(n.n)}</h4>
-        <div class="m" style="color:var(--text-secondary)">${t('n_songs', { n: fmt(n.c) })} · ${esc(tv(n.g))}${n.co ? ' · ' + esc(n.co) : ''}</div>
+        <div class="m" style="color:var(--text-secondary)">${t('n_songs', { n: fmt(n.c) })} · ${esc(tv(n.g))}${n.gi ? ` (${t('inferred')})` : ''}${n.co ? ' · ' + esc(n.co) : ''}</div>
         <div style="color:var(--muted);margin-top:2px">${n.s != null ? esc(t('subscribers', { n: compact(n.s) })) : ''}${n.p ? ' · ' + t('n_plays', { n: fmt(n.p) }) : ''}</div>
         <div style="margin-top:6px">${n.t.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>
         ${n.cm >= 0 && COMMS[n.cm] ? `<div class="hint">${t('world')}: <b>${esc(COMMS[n.cm].name)}</b></div>` : ''}
