@@ -246,8 +246,11 @@
 
       hbar(card(t('c_genres'), t('c_genres_s')), S.genres.map(([g, v]) => ({ label: tv(g), key: g, value: v })),
         { color: d => genreVar(d.key), total: S.songs, labelW: 170 });
-      hbar(card(t('c_main'), t('c_main_s')),
-        S.subs_buckets.map(([l, v]) => ({ label: tv(l), value: v })), { total: d3.sum(S.subs_buckets, d => d[1]), labelW: 120 });
+      const subsTotal = d3.sum(S.subs_buckets, d => d[1]);
+      if (subsTotal) {
+        hbar(card(t('c_main'), t('c_main_s')),
+          S.subs_buckets.map(([l, v]) => ({ label: tv(l), value: v })), { total: subsTotal, labelW: 120 });
+      }
 
       if (S.evolution.buckets.length) {
         const keys = GENRE_KEYS.filter(g => S.evolution.buckets.some(b => b.counts[g]));
