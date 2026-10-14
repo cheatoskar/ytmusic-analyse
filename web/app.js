@@ -335,10 +335,13 @@
     const nodes = A.map((a, i) => ({ i, ...a, r: 3 + Math.sqrt(a.c) * 3.2 }));
     const allEdges = D.edges.map(([s, tt, f, r, tg]) => ({ s, t: tt, f, r, tg }));
     const R = 140 + Math.sqrt(nodes.length) * 12;
-    const anchors = COMMS.slice(0, 8).map((c, i) => {
-      const ang = (i / Math.min(8, COMMS.length)) * 2 * Math.PI - Math.PI / 2;
-      return { x: Math.cos(ang) * R * 0.75, y: Math.sin(ang) * R * 0.75 };
+    // Die 12 groessten Musik-Welten bekommen einen eigenen Platz im Kreis, der Rest sammelt sich in der Mitte
+    const NA = Math.min(12, COMMS.length);
+    const anchors = COMMS.slice(0, NA).map((c, i) => {
+      const ang = (i / NA) * 2 * Math.PI - Math.PI / 2;
+      return { x: Math.cos(ang) * R, y: Math.sin(ang) * R };
     });
+    const pull = nodes.length > 500 ? 0.07 : 0.035;
     const anchorOf = n => anchors[n.cm] || { x: 0, y: 0 };
     nodes.forEach(n => { const a = anchorOf(n); n.x = a.x + (Math.random() - 0.5) * 80; n.y = a.y + (Math.random() - 0.5) * 80; });
 
@@ -362,14 +365,17 @@
     const sim = d3.forceSimulation()
       .force('charge', d3.forceManyBody().strength(n => -24 - n.r * 4).distanceMax(450))
       .force('collide', d3.forceCollide(n => n.r + 4))
-      .force('x', d3.forceX(n => anchorOf(n).x).strength(0.035))
-      .force('y', d3.forceY(n => anchorOf(n).y).strength(0.035))
+      .force('x', d3.forceX(n => anchorOf(n).x).strength(pull))
+      .force('y', d3.forceY(n => anchorOf(n).y).strength(pull))
       .force('link', d3.forceLink().distance(l => (l.f ? 26 : l.r ? 46 : 64)).strength(l => (l.f ? 0.5 : l.r ? 0.22 : 0.08)))
       .alphaDecay(0.03)
       .on('tick', () => {
         if (!fitted && sim.alpha() < 0.2) { fitted = true; fit(); }
         draw();
-      });
+      })
+      // Am Ende nochmal einpassen, solange niemand selbst gezoomt oder verschoben hat
+      .on('end', () => { if (!userMoved) fit(500); });
+    let userMoved = false;
 
     function fit(duration = 750) {
       if (!vnodes.length) return;
@@ -453,10 +459,11 @@
       // Namen der Musik-Welten in der Übersicht
       if (!focus && k < 1.3) {
         ctx.font = `600 ${14 / k}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-        COMMS.slice(0, 8).forEach((c, i) => {
+        COMMS.slice(0, NA).forEach((c, i) => {
           const mem = vnodes.filter(n => n.cm === i);
           if (mem.length < 3) return;
-          const cx = d3.mean(mem, n => n.x), cy = d3.min(mem, n => n.y) - 18 / k;
+          // Median statt Mittelwert/Minimum: einzelne Ausreisser ziehen den Namen nicht weg
+          const cx = d3.median(mem, n => n.x), cy = d3.quantile(mem.map(n => n.y).sort(d3.ascending), 0.2) - 14 / k;
           ctx.globalAlpha = 0.9;
           ctx.lineWidth = 4 / k; ctx.strokeStyle = pal.surface; ctx.strokeText(c.name, cx, cy);
           ctx.fillStyle = pal.text; ctx.fillText(c.name, cx, cy);
@@ -531,7 +538,7 @@
       draw();
     }
 
-    const zoom = d3.zoom().scaleExtent([0.08, 10]).on('zoom', e => { transform = e.transform; draw(); });
+    const zoom = d3.zoom().scaleExtent([0.08, 10]).on('zoom', e => { transform = e.transform; if (e.sourceEvent) userMoved = true; draw(); });
     const drag = d3.drag()
       .subject(ev => { const n = nodeAt(ev.x, ev.y); return n ? { n, x: transform.applyX(n.x), y: transform.applyY(n.y) } : null; })
       .on('start', ev => { if (!ev.active) sim.alphaTarget(0.25).restart(); ev.subject.n.fx = ev.subject.n.x; ev.subject.n.fy = ev.subject.n.y; })

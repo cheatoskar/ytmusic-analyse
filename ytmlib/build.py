@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import os
 import re
 import shutil
@@ -14,7 +15,7 @@ from itertools import combinations, permutations
 from pathlib import Path
 
 from .common import DATA, LANG, OUT, WEB, artist_from_title, cache_dir, load_json, prepare_songs, tr
-from .genres import OTHER, UNKNOWN, clean_tags, macro_genre
+from .genres import GENERIC_TAGS, OTHER, UNKNOWN, clean_tags, macro_genre
 
 LIKED_PLAYLIST_NAME = re.compile(r"lik|mag|gef[aä]ll|favorit", re.I)
 WATCH_LATER = re.compile(r"watch later|sp[aä]ter ansehen", re.I)
@@ -419,19 +420,31 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
 
     communities = nx.community.louvain_communities(G, weight="weight", seed=42, resolution=1.0)
     communities = sorted(communities, key=lambda c: -sum(len(artists[k]["songs"]) for k in c))
+    # Cluster nach ihren TYPISCHEN Tags benennen: haeufig im Cluster und deutlich haeufiger als in der
+    # ganzen Sammlung (Lift). Allgemeine Tags wie "electronic" oder "house" taugen nicht zur Unterscheidung.
+    def tag_weights(keys) -> Counter:
+        c = Counter()
+        for k in keys:
+            for t in artists[k]["tags"][:5]:
+                if t not in GENERIC_TAGS:
+                    c[t] += len(artists[k]["songs"])
+        return c
+
+    global_tags = tag_weights(artists)
+    global_total = sum(global_tags.values()) or 1
     comm_info = []
     for ci, members in enumerate(communities):
         song_n = sum(len(artists[k]["songs"]) for k in members)
-        tc = Counter()
         gc = Counter()
         for k in members:
-            w = len(artists[k]["songs"])
-            for t in artists[k]["tags"][:3]:
-                tc[t] += w
-            gc[artists[k]["genre"]] += w
+            gc[artists[k]["genre"]] += len(artists[k]["songs"])
             artists[k]["community"] = ci
+        tc = tag_weights(members)
+        total = sum(tc.values()) or 1
+        scored = sorted(((v / total) * math.log1p((v / total) / (global_tags[t] / global_total)), t)
+                        for t, v in tc.items() if v / total >= 0.04)
         top_members = sorted(members, key=lambda k: -len(artists[k]["songs"]))
-        name = " · ".join(t for t, _ in tc.most_common(2)) or artists[top_members[0]]["name"]
+        name = " · ".join(t for _, t in scored[::-1][:2]) or artists[top_members[0]]["name"]
         comm_info.append({"id": ci, "name": name, "songs": song_n, "artists": len(members),
                           "genre": gc.most_common(1)[0][0],
                           "top": [artists[k]["name"] for k in top_members[:6]]})
