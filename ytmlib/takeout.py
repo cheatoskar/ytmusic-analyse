@@ -54,15 +54,15 @@ def _parse_history(items: list) -> list[dict]:
         if not isinstance(it, dict):
             continue
         url = it.get("titleUrl") or ""
-        if it.get("header") != "YouTube Music" and "music.youtube.com" not in url:
-            continue
+        # Normale YouTube-Wiedergaben behalten (src=yt); build zaehlt sie nur fuer Liked Songs mit
+        src = "music" if it.get("header") == "YouTube Music" or "music.youtube.com" in url else "yt"
         m = VID_RE.search(url)
         t = _parse_time(it.get("time") or "")
         if not m or not t:
             continue
         title = TITLE_SUFFIX.sub("", TITLE_PREFIX.sub("", it.get("title") or ""))
         sub = (it.get("subtitles") or [{}])[0].get("name") or ""
-        plays.append({"v": m.group(1), "t": t, "title": title, "artist": sub.removesuffix(" - Topic")})
+        plays.append({"v": m.group(1), "t": t, "title": title, "artist": sub.removesuffix(" - Topic"), "src": src})
     return plays
 
 
@@ -89,6 +89,8 @@ def run(source: str) -> None:
             if "verlauf" in low or "history" in low:
                 html_history = True
             continue
+        if re.search(r"such|search", Path(low).name):
+            continue  # Suchverlauf enthaelt keine Wiedergaben
         if low.endswith(".json"):
             try:
                 data = json.loads(raw.decode("utf-8-sig"))
@@ -96,13 +98,17 @@ def run(source: str) -> None:
                 continue
             if isinstance(data, list) and data and isinstance(data[0], dict) and "titleUrl" in data[0]:
                 found = _parse_history(data)
-                print(f"  Verlauf: {name} -> {len(found)} YouTube-Music-Wiedergaben")
+                music = sum(1 for p in found if p["src"] == "music")
+                print(f"  Verlauf: {name} -> {music} YouTube-Music- und {len(found) - music} YouTube-Wiedergaben")
                 plays.extend(found)
         elif low.endswith(".csv"):
+            if "/playlists/" not in low.replace("\\", "/") or Path(low).stem == "playlists":
+                continue  # nur echte Playlist-Inhalte, nicht Metadaten oder Mediathek
             entries = _parse_playlist_csv(raw)
             if entries:
-                playlists[Path(name).stem] = entries
-                print(f"  Playlist: {Path(name).stem} -> {len(entries)} Eintraege")
+                pl_name = Path(name).stem.removesuffix("-Videos")
+                playlists[pl_name] = entries
+                print(f"  Playlist: {pl_name} -> {len(entries)} Eintraege")
 
     if not plays and html_history:
         print("ACHTUNG: Der Verlauf liegt nur als HTML vor. Takeout neu anfordern mit Format JSON (README, Schritt 4).")

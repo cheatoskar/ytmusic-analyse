@@ -119,7 +119,11 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         })
 
     # ---------- Songs anreichern ----------
-    liked_at, liked_source = _liked_timestamps(playlists, {s["videoId"] for s in songs})
+    liked_ids_all = {s["videoId"] for s in songs}
+    # YT-Music-Wiedergaben immer; normale YouTube-Wiedergaben nur, wenn der Titel in den Likes steht
+    plays_yt_liked = sum(1 for p in plays if p.get("src") == "yt" and p["v"] in liked_ids_all)
+    plays = [p for p in plays if p.get("src", "music") == "music" or p["v"] in liked_ids_all]
+    liked_at, liked_source = _liked_timestamps(playlists, liked_ids_all)
     play_count = Counter(p["v"] for p in plays)
     play_last = {}
     for p in plays:
@@ -270,7 +274,10 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         for p in plays:
             meta[p["v"]] = (p["title"], p["artist"])
         song_by_id = {s["videoId"]: s for s in songs}
-        artist_plays = Counter(p["artist"] for p in plays if p["artist"])
+        # Bei Liked Songs den echten Hauptkuenstler nehmen, sonst den Kanal (oft ein Label wie Anjunadeep)
+        artist_plays = Counter(
+            song_by_id[p["v"]]["artists"][0]["name"] if p["v"] in song_by_id and song_by_id[p["v"]]["artists"]
+            else p["artist"] for p in plays if p["v"] in song_by_id or p["artist"])
 
         def label(v):
             if v in song_by_id:
@@ -281,6 +288,7 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         busiest = days.most_common(1)[0]
         stats["plays"] = {
             "total": len(plays),
+            "from_youtube": plays_yt_liked,
             "unique": len(play_count),
             "first": local[0].date().isoformat(),
             "last": local[-1].date().isoformat(),

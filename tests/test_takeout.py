@@ -17,9 +17,10 @@ hist = [
      "time": "2026-03-02T08:00:00Z"},
 ]
 p = _parse_history(hist)
-assert len(p) == 2, p
+assert [x["src"] for x in p] == ["music", "yt", "music"], p
 assert p[0]["v"] == "abcdefghijk" and p[0]["title"] == "Mond feuer" and p[0]["artist"] == "Xoxodo MC", p[0]
-assert p[1]["title"] == "Echo", p[1]
+assert p[1]["title"] == "Some video", p[1]
+assert p[2]["title"] == "Echo", p[2]
 
 old = ("Playlist-ID,Kanal-ID,Erstellt\r\nLMxyz,UC123,2020-01-01T00:00:00+00:00\r\n\r\n"
        "Video-ID,Zeitstempel der Erstellung des Playlist-Videos\r\nabcdefghijk,2024-05-01T10:00:00+00:00\r\n").encode("utf-8-sig")
