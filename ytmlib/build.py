@@ -13,9 +13,10 @@ from itertools import combinations
 from pathlib import Path
 
 from .common import DATA, OUT, WEB, artist_from_title, cache_dir, load_json, prepare_songs
-from .genres import MACRO_NAMES, UNKNOWN, clean_tags, macro_genre
+from .genres import OTHER, UNKNOWN, clean_tags, macro_genre
 
 LIKED_PLAYLIST_NAME = re.compile(r"lik|mag|gef[aä]ll|favorit", re.I)
+WATCH_LATER = re.compile(r"watch later|sp[aä]ter ansehen", re.I)
 VERSION_TAGS = {
     "Remix": r"\bremix\b|\brmx\b",
     "Sped up": r"sped[\s-]?up|nightcore",
@@ -143,6 +144,27 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         for k in keys:
             artists[k]["plays"] += s["plays"]
 
+    # Die 8 haeufigsten Stile bekommen eine Farbe, der Rest wird fuer Farbe/Stapel zu 'Weitere Stile'
+    style_counts = Counter(s["genre"] for s in songs if s["genre"] != UNKNOWN)
+    color_styles = [g for g, _ in style_counts.most_common(8)]
+
+    def collapse(g: str) -> str:
+        return g if g in color_styles or g == UNKNOWN else OTHER
+
+    # Eigene Playlists (ohne 'Spaeter ansehen'): Mitgliedschaft je Song, sortiert nach Anzahl Liked Songs
+    by_id = {s["videoId"]: i for i, s in enumerate(songs)}
+    pl_members = {name: sorted({by_id[e[0]] for e in entries if e[0] in by_id})
+                  for name, entries in playlists.items() if not WATCH_LATER.search(name)}
+    pl_names = [name for name, m in sorted(pl_members.items(), key=lambda kv: -len(kv[1])) if m]
+    for s in songs:
+        s["pl"] = []
+    for pi, name in enumerate(pl_names):
+        for i in pl_members[name]:
+            songs[i]["pl"].append(pi)
+    for r in artists.values():
+        pc = Counter(pi for i in r["songs"] for pi in songs[i]["pl"])
+        r["playlist"] = pc.most_common(1)[0][0] if pc else -1
+
     n = len(songs)
     all_durations = [s["duration_s"] for s in songs if s.get("duration_s")]
     # DJ-Sets/Mixe (> 20 min) verzerren Durchschnitt und Verteilung: getrennt ausweisen
@@ -193,7 +215,7 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
     evolution = {"mode": None, "buckets": []}
     dated = [s for s in songs if s.get("likedAt")]
     if len(dated) > 0.5 * n:
-        dts = [(datetime.fromisoformat(s["likedAt"]).astimezone(tz), s["genre"]) for s in dated]
+        dts = [(datetime.fromisoformat(s["likedAt"]).astimezone(tz), collapse(s["genre"])) for s in dated]
         quarters = {(d.year, (d.month - 1) // 3) for d, _ in dts}
         by_year = len(quarters) > 16
         evolution["mode"] = "Jahr (Like-Datum)" if by_year else "Quartal (Like-Datum)"
@@ -211,7 +233,14 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         for i in range(10):
             chunk = ordered[int(i * size): int((i + 1) * size)]
             evolution["buckets"].append({"label": f"{i * 10}–{(i + 1) * 10} %",
-                                         "counts": dict(Counter(s["genre"] for s in chunk))})
+                                         "counts": dict(Counter(collapse(s["genre"]) for s in chunk))})
+
+    pl_stats = []
+    for pi, name in enumerate(pl_names):
+        members = [songs[i] for i in pl_members[name]]
+        pl_stats.append({"name": name, "total": len(playlists[name]), "liked": len(members),
+                         "counts": dict(Counter(collapse(s["genre"]) for s in members)),
+                         "top": [g for g, _ in Counter(s["genre"] for s in members if s["genre"] != UNKNOWN).most_common(3)]})
 
     stats = {
         "songs": n,
@@ -232,8 +261,10 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         "genre_known_pct": _share(n - genre_counts.get(UNKNOWN, 0), n),
         "median_subs": int(statistics.median(weighted_subs)) if weighted_subs else None,
         "top_artists": [[artists[k]["name"], c, artists[k]["genre"]] for k, c in main_artist_counts.most_common(30)],
-        "genres": sorted(([g, genre_counts[g]] for g in MACRO_NAMES if genre_counts.get(g)), key=lambda x: -x[1])
+        "genres": sorted(([g, c] for g, c in genre_counts.items() if g != UNKNOWN), key=lambda x: -x[1])
                   + ([[UNKNOWN, genre_counts[UNKNOWN]]] if genre_counts.get(UNKNOWN) else []),
+        "playlists": pl_stats,
+        "in_playlist": sum(1 for s in songs if s["pl"]),
         "decades": sorted(decade_counts.items()),
         "years": sorted(year_counts.items()),
         "countries": _top(country_counts, 20),
@@ -371,17 +402,18 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
     kidx = {k: i for i, k in enumerate(keys)}
     payload = {
         "meta": {"generated": datetime.now().isoformat(timespec="minutes"), "fetched": liked.get("fetched_at"),
-                 "demo": demo, "genres": MACRO_NAMES, "unknown": UNKNOWN},
+                 "demo": demo, "genres": color_styles, "unknown": UNKNOWN, "other": OTHER,
+                 "playlists": pl_names},
         "stats": stats,
         "communities": comm_info,
         "artists": [{"n": r["name"], "c": len(r["songs"]), "g": r["genre"], "t": r["tags"][:5],
-                     "s": r["subs"], "co": r["country"], "p": r["plays"], "cm": r.get("community", -1)}
+                     "s": r["subs"], "co": r["country"], "p": r["plays"], "cm": r.get("community", -1), "pl": r["playlist"]}
                     for r in (artists[k] for k in keys)],
         "edges": [[kidx[a], kidx[b], e["feat"], e["related"], e["tags"]] for (a, b), e in edges.items()],
         "songs": [{"t": s["title"], "a": [kidx[k] for k in s["keys"]], "al": s.get("album"), "y": s.get("year"),
                    "d": s.get("duration_s"), "e": int(s["explicit"]), "g": s["genre"], "p": s["plays"],
                    "l": (s["likedAt"] or "")[:10] or None, "o": s["position"], "ty": s["type"],
-                   "v": s["videoId"], "av": int(s["available"])}
+                   "v": s["videoId"], "av": int(s["available"]), "pl": s["pl"]}
                   for s in songs],
     }
     for name in ("index.html", "app.js", "style.css"):

@@ -19,7 +19,13 @@
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const compact = v => v == null ? '–' : v >= 1e6 ? (v / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + ' Mio.'
     : v >= 1e3 ? Math.round(v / 1e3).toLocaleString('de-DE') + ' Tsd.' : fmt(v);
-  const genreVar = g => { const i = GENRES.indexOf(g); return i >= 0 ? `var(--s${i + 1})` : 'var(--other)'; };
+  const OTHER = D.meta.other || 'Weitere Stile', PLS = D.meta.playlists || [];
+  const GENRE_KEYS = GENRES.concat([OTHER, UNKNOWN]);
+  const collapse = g => (GENRES.includes(g) || g === UNKNOWN ? g : OTHER);
+  const genreVar = g => { const i = GENRES.indexOf(g); return i >= 0 ? `var(--s${i + 1})` : g === UNKNOWN ? 'var(--unknown)' : 'var(--other)'; };
+  const plVar = p => (p >= 0 && p < 8 ? `var(--s${p + 1})` : 'var(--other)');
+  // Spezifischste Playlist eines Songs = die kleinste (Liste ist nach Groesse sortiert)
+  const songPl = s => (s.pl && s.pl.length ? Math.max(...s.pl) : -1);
   const commVar = c => (c >= 0 && c < 8 ? `var(--s${c + 1})` : 'var(--other)');
   const artistNames = s => s.a.map(i => A[i].n).join(', ');
   const songsByArtist = A.map(() => []);
@@ -172,6 +178,32 @@
     lg.append('span').html(`viel (max. ${fmt(max)})`);
   }
 
+  function hstack100(el, rows, keys, colorOf, labelW = 200) {
+    const legend = d3.select(el).append('div').attr('class', 'legend');
+    keys.forEach(k => legend.append('span').html(`<i style="background:${colorOf(k)}"></i>${esc(k)}`));
+    const W = el.clientWidth || 600, bh = 18, gap = 8, valW = 70, H = rows.length * (bh + gap);
+    const x = d3.scaleLinear([0, 1], [labelW, Math.max(labelW + 40, W - valW)]);
+    const maxChars = Math.floor((labelW - 10) / 6.4);
+    const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    rows.forEach((r, i) => {
+      const g = svg.append('g').attr('transform', `translate(0,${i * (bh + gap)})`);
+      g.append('text').attr('class', 'barlbl').attr('x', labelW - 8).attr('y', bh / 2).attr('dy', '0.35em').attr('text-anchor', 'end')
+        .text(r.label.length > maxChars ? r.label.slice(0, maxChars - 1) + '…' : r.label);
+      const total = d3.sum(keys, k => r.counts[k] || 0) || 1;
+      let acc = 0;
+      keys.forEach(k => {
+        const v = r.counts[k] || 0;
+        if (!v) return;
+        g.append('rect').attr('x', x(acc / total)).attr('width', Math.max(0, x((acc + v) / total) - x(acc / total))).attr('height', bh)
+          .attr('fill', colorOf(k)).attr('stroke', 'var(--surface-1)').attr('stroke-width', 1)
+          .on('mousemove', ev => showTip(ev, `<b>${esc(k)}</b>${esc(r.label)}: ${fmt(v)} Songs · ${pct(v, total)}`))
+          .on('mouseleave', hideTip);
+        acc += v;
+      });
+      g.append('text').attr('class', 'val').attr('x', x(1) + 8).attr('y', bh / 2).attr('dy', '0.35em').text(r.sub);
+    });
+  }
+
   // ---------- Übersicht ----------
   function initOverview() {
     const root = document.getElementById('overview');
@@ -217,9 +249,16 @@
         S.subs_buckets.map(([l, v]) => ({ label: l, value: v })), { total: d3.sum(S.subs_buckets, d => d[1]), labelW: 120 });
 
       if (S.evolution.buckets.length) {
-        const keys = GENRES.concat([UNKNOWN]).filter(g => S.evolution.buckets.some(b => b.counts[g]));
+        const keys = GENRE_KEYS.filter(g => S.evolution.buckets.some(b => b.counts[g]));
         stacked100(card('Wie sich dein Geschmack verändert hat', `Genre-Anteile je ${S.evolution.mode}`, true),
           S.evolution.buckets, keys, genreVar);
+      }
+
+      if (S.playlists && S.playlists.length) {
+        hstack100(card('Was in deinen Playlists steckt',
+          `Stil-Mix der Liked Songs je eigener Playlist · rechts: Liked Songs / Einträge gesamt · ${fmt(S.in_playlist)} von ${fmt(S.songs)} Likes stecken in mindestens einer Playlist`, true),
+          S.playlists.map(p => ({ label: p.name, sub: `${fmt(p.liked)} / ${fmt(p.total)}`, counts: p.counts })),
+          GENRE_KEYS.filter(g => S.playlists.some(p => p.counts[g])), genreVar);
       }
 
       hbar(card('Top 30 Künstler', 'Anzahl Liked Songs als Hauptkünstler, Farbe = Genre'),
@@ -311,14 +350,17 @@
     function palette() {
       pal = {
         surface: css('--surface-1'), text: css('--text-primary'), text2: css('--text-secondary'), muted: css('--muted'),
-        other: css('--other'), s: d3.range(1, 9).map(i => css(`--s${i}`)),
+        other: css('--other'), unknown: css('--unknown'), s: d3.range(1, 9).map(i => css(`--s${i}`)),
       };
     }
     const colorOf = n => {
-      if (colorBy === 'genre') { const i = GENRES.indexOf(n.g); return i >= 0 ? pal.s[i] : pal.other; }
+      if (colorBy === 'genre') { const i = GENRES.indexOf(n.g); return i >= 0 ? pal.s[i] : n.g === UNKNOWN ? pal.unknown : pal.other; }
+      if (colorBy === 'playlist') return n.pl >= 0 && n.pl < 8 ? pal.s[n.pl] : pal.other;
       return n.cm >= 0 && n.cm < 8 ? pal.s[n.cm] : pal.other;
     };
-    const groupOf = n => (colorBy === 'genre' ? n.g : (n.cm >= 0 && n.cm < 8 ? n.cm : 'other'));
+    const groupOf = n => (colorBy === 'genre' ? collapse(n.g)
+      : colorBy === 'playlist' ? (n.pl >= 0 && n.pl < 8 ? n.pl : 'other')
+      : (n.cm >= 0 && n.cm < 8 ? n.cm : 'other'));
 
     let vnodes = [], vlinks = [], adj = new Map();
     const sim = d3.forceSimulation()
@@ -442,8 +484,12 @@
       const el = document.getElementById('netLegend');
       let items;
       if (colorBy === 'genre') {
-        const cnt = d3.rollup(vnodes, v => v.length, n => n.g);
-        items = GENRES.concat([UNKNOWN]).filter(g => cnt.get(g)).map(g => ({ key: g, label: g, n: cnt.get(g), color: genreVar(g) }));
+        const cnt = d3.rollup(vnodes, v => v.length, n => collapse(n.g));
+        items = GENRE_KEYS.filter(g => cnt.get(g)).map(g => ({ key: g, label: g, n: cnt.get(g), color: genreVar(g) }));
+      } else if (colorBy === 'playlist') {
+        const cnt = d3.rollup(vnodes, v => v.length, n => (n.pl >= 0 && n.pl < 8 ? n.pl : 'other'));
+        items = PLS.slice(0, 8).map((name, i) => ({ key: i, label: name, n: cnt.get(i), color: plVar(i) })).filter(it => it.n);
+        if (cnt.get('other')) items.push({ key: 'other', label: 'Weitere / ohne Playlist', n: cnt.get('other'), color: 'var(--other)' });
       } else {
         const cnt = d3.rollup(vnodes, v => v.length, n => (n.cm >= 0 && n.cm < 8 ? n.cm : 'other'));
         items = COMMS.slice(0, 8).filter(c => cnt.get(c.id)).map(c => ({ key: c.id, label: c.name, n: cnt.get(c.id), color: commVar(c.id) }));
@@ -549,10 +595,12 @@
     const commOfSong = s => (s.a.length ? A[s.a[0]].cm : -1);
 
     function hierarchy() {
-      const groups = d3.group(SONGS, s => (groupBy === 'genre' ? s.g : (commOfSong(s) >= 0 && commOfSong(s) < 12 ? commOfSong(s) : 'other')));
+      const groups = d3.group(SONGS, s => (groupBy === 'genre' ? s.g : groupBy === 'playlist' ? songPl(s)
+        : (commOfSong(s) >= 0 && commOfSong(s) < 12 ? commOfSong(s) : 'other')));
       const children = [...groups].map(([key, ss]) => {
-        const color = groupBy === 'genre' ? genreVar(key) : commVar(key === 'other' ? -1 : key);
-        const name = groupBy === 'genre' ? key : key === 'other' ? 'Weitere Welten' : COMMS[key].name;
+        const color = groupBy === 'genre' ? genreVar(key) : groupBy === 'playlist' ? plVar(key) : commVar(key === 'other' ? -1 : key);
+        const name = groupBy === 'genre' ? key : groupBy === 'playlist' ? (key >= 0 ? PLS[key] : 'Ohne Playlist')
+          : key === 'other' ? 'Weitere Welten' : COMMS[key].name;
         const byArtist = d3.group(ss, s => (s.a.length ? s.a[0] : -1));
         return {
           name, kind: 'group', color,
@@ -568,8 +616,12 @@
     function legend() {
       const el = document.getElementById('packLegend');
       if (groupBy === 'genre') {
-        const cnt = d3.rollup(SONGS, v => v.length, s => s.g);
-        el.innerHTML = GENRES.concat([UNKNOWN]).filter(g => cnt.get(g)).map(g => `<span><i style="background:${genreVar(g)}"></i>${esc(g)} <span style="color:var(--muted)">${fmt(cnt.get(g))}</span></span>`).join('');
+        const cnt = d3.rollup(SONGS, v => v.length, s => collapse(s.g));
+        el.innerHTML = GENRE_KEYS.filter(g => cnt.get(g)).map(g => `<span><i style="background:${genreVar(g)}"></i>${esc(g)} <span style="color:var(--muted)">${fmt(cnt.get(g))}</span></span>`).join('');
+      } else if (groupBy === 'playlist') {
+        const cnt = d3.rollup(SONGS, v => v.length, songPl);
+        el.innerHTML = PLS.slice(0, 8).map((name, i) => `<span><i style="background:${plVar(i)}"></i>${esc(name)} <span style="color:var(--muted)">${fmt(cnt.get(i) || 0)}</span></span>`).join('')
+          + `<span><i style="background:var(--other)"></i>Weitere / ohne Playlist <span style="color:var(--muted)">${fmt(SONGS.length - d3.sum(PLS.slice(0, 8), (n, i) => cnt.get(i) || 0))}</span></span>`;
       } else {
         el.innerHTML = COMMS.slice(0, 8).map(c => `<span><i style="background:${commVar(c.id)}"></i>${esc(c.name)}</span>`).join('') + '<span><i style="background:var(--other)"></i>Weitere</span>';
       }
@@ -647,12 +699,12 @@
   // ---------- Tabelle ----------
   function initTable() {
     const rows = SONGS.map(s => ({ ...s, artist: artistNames(s) }));
-    rows.forEach(r => { r._q = [r.t, r.artist, r.al, r.g, r.y].join(' ').toLowerCase(); });
+    rows.forEach(r => { r.pls = (r.pl || []).map(i => PLS[i]).join(', '); r._q = [r.t, r.artist, r.al, r.g, r.y, r.pls].join(' ').toLowerCase(); });
     const cols = [
       { k: 'o', l: '#', num: true, title: 'Like-Reihenfolge (0 = zuletzt geliked)' },
       { k: 't', l: 'Titel' }, { k: 'artist', l: 'Künstler' }, { k: 'al', l: 'Album' },
       { k: 'y', l: 'Jahr', num: true }, { k: 'd', l: 'Länge', num: true, f: dur }, { k: 'g', l: 'Genre' },
-      { k: 'p', l: 'Plays', num: true }, { k: 'l', l: 'Geliked am' },
+      { k: 'p', l: 'Plays', num: true }, { k: 'pls', l: 'Playlists' }, { k: 'l', l: 'Geliked am' },
     ];
     let sortK = 'o', dir = 1;
     const tbl = document.getElementById('tbl'), q = document.getElementById('q'), qn = document.getElementById('qn');
