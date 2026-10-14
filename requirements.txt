@@ -1,0 +1,4 @@
+ytmusicapi>=1.10
+networkx>=3.2
+requests>=2.31
+tzdata>=2024.1

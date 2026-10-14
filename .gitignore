@@ -1,0 +1,18 @@
+# Zugangsdaten – niemals committen
+browser.json
+oauth.json
+.env
+
+# Persoenliche Daten und Ergebnisse
+data/
+out/
+takeout/
+*.zip
+
+# Demo-Ausgaben (reproduzierbar mit: python ytm.py demo)
+data_demo/
+out_demo/
+
+.venv/
+__pycache__/
+*.tmp

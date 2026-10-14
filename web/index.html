@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Liked Songs Analyse</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Deine Liked Songs <span id="demo" class="badge" hidden>DEMO</span></h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <nav role="tablist">
+      <button role="tab" data-tab="overview" aria-selected="true">Übersicht</button>
+      <button role="tab" data-tab="network">Netzwerk-Map</button>
+      <button role="tab" data-tab="bubbles">Bubble-Map</button>
+      <button role="tab" data-tab="table">Alle Songs</button>
+      <button class="btn" id="theme" title="Hell/Dunkel umschalten">◐</button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="overview"></section>
+
+    <section id="network" hidden>
+      <div class="stage" id="netStage">
+        <canvas id="net"></canvas>
+        <div class="panel">
+          <label for="netSearch">Künstler suchen</label>
+          <input type="search" id="netSearch" list="artistList" placeholder="Name …">
+          <datalist id="artistList"></datalist>
+          <label for="netColor">Farbe nach</label>
+          <select id="netColor">
+            <option value="genre">Genre</option>
+            <option value="community">Musik-Welt (Cluster)</option>
+          </select>
+          <label>Verbindungen</label>
+          <div class="row"><input type="checkbox" id="eFeat" checked><label for="eFeat" style="margin:0">Features (gemeinsame Songs)</label></div>
+          <div class="row"><input type="checkbox" id="eRel" checked><label for="eRel" style="margin:0">Verwandt laut YT Music</label></div>
+          <div class="row"><input type="checkbox" id="eTag"><label for="eTag" style="margin:0">Ähnliche Genre-Tags</label></div>
+          <label for="netMin">Mindestens <b id="netMinV">1</b> Song(s)</label>
+          <input type="range" id="netMin" min="1" max="10" value="1" style="width:100%">
+          <div class="legend" id="netLegend"></div>
+          <button class="btn" id="netFit" style="margin-top:8px">Ansicht einpassen</button>
+          <div class="hint">Mausrad: Zoom · Ziehen: verschieben · Klick: Details · Legende anklicken: hervorheben</div>
+        </div>
+        <div class="panel detail" id="netDetail" hidden></div>
+      </div>
+    </section>
+
+    <section id="bubbles" hidden>
+      <div class="stage" id="packStage">
+        <svg id="pack"></svg>
+        <div class="panel">
+          <label for="packGroup">Gruppieren nach</label>
+          <select id="packGroup">
+            <option value="genre">Genre → Künstler → Song</option>
+            <option value="community">Musik-Welt → Künstler → Song</option>
+          </select>
+          <label for="packSize">Bubble-Größe</label>
+          <select id="packSize">
+            <option value="count">Gleich (1 Song = 1)</option>
+            <option value="plays">Wiedergaben</option>
+            <option value="dur">Songlänge</option>
+          </select>
+          <div class="legend" id="packLegend"></div>
+          <div class="hint">Klick auf eine Bubble: hineinzoomen · Klick auf den Hintergrund: zurück</div>
+        </div>
+        <div class="crumb" id="crumb"></div>
+      </div>
+    </section>
+
+    <section id="table" hidden>
+      <div class="tablebar">
+        <input type="search" id="q" placeholder="Titel, Künstler, Album, Genre …">
+        <span id="qn" class="meta"></span>
+      </div>
+      <div class="tablewrap"><table id="tbl"></table></div>
+    </section>
+  </main>
+  <div id="tip"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
