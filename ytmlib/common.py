@@ -8,6 +8,33 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _detect_lang() -> str:
+    """YTM_LANG=de|en, sonst Systemsprache (deutsch -> de, alles andere -> en)."""
+    env = os.environ.get("YTM_LANG", "").strip().lower()
+    if env:
+        return "de" if env.startswith("de") else "en"
+    import locale
+    try:
+        loc = (locale.getlocale()[0] or "").lower()
+    except ValueError:
+        loc = ""
+    if not loc and os.name == "nt":
+        try:
+            import ctypes
+            loc = locale.windows_locale.get(ctypes.windll.kernel32.GetUserDefaultUILanguage(), "").lower()
+        except Exception:  # noqa: BLE001
+            loc = ""
+    return "de" if loc.startswith(("de", "german")) else "en"
+
+
+LANG = _detect_lang()
+
+
+def tr(de: str, en: str) -> str:
+    """Meldung in der eingestellten Sprache."""
+    return de if LANG == "de" else en
 DATA = ROOT / "data"
 OUT = ROOT / "out"
 WEB = ROOT / "web"
@@ -119,4 +146,4 @@ class Progress:
         if self.done % self.every == 0 or self.done == self.total:
             elapsed = time.time() - self.start
             rest = elapsed / self.done * (self.total - self.done)
-            print(f"  {self.label}: {self.done}/{self.total}  (noch ~{rest/60:.1f} min)", flush=True)
+            print(f"  {self.label}: {self.done}/{self.total}  " + tr(f"(noch ~{rest/60:.1f} min)", f"(~{rest/60:.1f} min left)"), flush=True)

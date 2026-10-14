@@ -15,7 +15,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from .common import DATA, save_json
+from .common import DATA, save_json, tr
 
 VID_RE = re.compile(r"[?&]v=([A-Za-z0-9_-]{11})")
 ID_ONLY = re.compile(r"^[A-Za-z0-9_-]{11}$")
@@ -35,7 +35,7 @@ def _iter_files(source: Path):
             if p.suffix.lower() in (".json", ".csv", ".html"):
                 yield str(p.relative_to(source)), p.read_bytes()
     else:
-        sys.exit(f"Nicht gefunden oder keine ZIP/kein Ordner: {source}")
+        sys.exit(tr(f"Nicht gefunden oder keine ZIP/kein Ordner: {source}", f"Not found, or not a ZIP/folder: {source}"))
 
 
 def _parse_time(value: str) -> str | None:
@@ -99,7 +99,8 @@ def run(source: str) -> None:
             if isinstance(data, list) and data and isinstance(data[0], dict) and "titleUrl" in data[0]:
                 found = _parse_history(data)
                 music = sum(1 for p in found if p["src"] == "music")
-                print(f"  Verlauf: {name} -> {music} YouTube-Music- und {len(found) - music} YouTube-Wiedergaben")
+                print(tr(f"  Verlauf: {name} -> {music} YouTube-Music- und {len(found) - music} YouTube-Wiedergaben",
+                         f"  History: {name} -> {music} YouTube Music and {len(found) - music} YouTube plays"))
                 plays.extend(found)
         elif low.endswith(".csv"):
             if "/playlists/" not in low.replace("\\", "/") or Path(low).stem == "playlists":
@@ -108,11 +109,13 @@ def run(source: str) -> None:
             if entries:
                 pl_name = Path(name).stem.removesuffix("-Videos")
                 playlists[pl_name] = entries
-                print(f"  Playlist: {pl_name} -> {len(entries)} Eintraege")
+                print(tr(f"  Playlist: {pl_name} -> {len(entries)} Einträge", f"  Playlist: {pl_name} -> {len(entries)} entries"))
 
     if not plays and html_history:
-        print("ACHTUNG: Der Verlauf liegt nur als HTML vor. Takeout neu anfordern mit Format JSON (README, Schritt 4).")
+        print(tr("ACHTUNG: Der Verlauf liegt nur als HTML vor. Takeout neu anfordern mit Format JSON (README, Schritt 1).",
+                 "WARNING: The history is HTML only. Request Takeout again with JSON format (README, step 1)."))
     plays.sort(key=lambda p: p["t"])
     save_json(DATA / "plays.json", plays, indent=None)
     save_json(DATA / "takeout_playlists.json", playlists, indent=None)
-    print(f"OK: {len(plays)} Wiedergaben, {len(playlists)} Playlists gespeichert. Weiter mit: python ytm.py build")
+    print(tr(f"OK: {len(plays)} Wiedergaben, {len(playlists)} Playlists gespeichert. Weiter mit: python ytm.py build",
+             f"OK: saved {len(plays)} plays and {len(playlists)} playlists. Next: python ytm.py build"))

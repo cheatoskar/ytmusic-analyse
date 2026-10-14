@@ -77,7 +77,7 @@ def run() -> None:
             "album": albums[alb_id]["title"], "albumId": alb_id,
             "duration_s": int(rng.gauss(185 if scene != "film" else 260, 40)),
             "explicit": scene in ("deutschrap", "us-rap") and rng.random() < 0.7,
-            "available": rng.random() > 0.02, "type": rng.choices(["Song", "Musikvideo", "Upload"], [85, 12, 3])[0],
+            "available": rng.random() > 0.02, "type": rng.choices(["Song", "Music video", "Upload"], [85, 12, 3])[0],
             "thumb": None,
         })
 
@@ -103,7 +103,7 @@ def run() -> None:
         ts = like_start + timedelta(seconds=span * (1 - s["position"] / total) ** 0.8)
         playlists["Liked videos"].append([s["videoId"], ts.isoformat()])
 
-    save_json(DEMO_DATA / "liked_songs.json", {"fetched_at": "demo", "count": len(songs), "songs": songs})
+    save_json(DEMO_DATA / "liked_songs.json", {"fetched_at": "demo", "count": len(songs), "declared": len(songs), "songs": songs})
     save_json(DEMO_DATA / "cache" / "albums.json", albums)
     save_json(DEMO_DATA / "cache" / "artists.json", yt_cache)
     save_json(DEMO_DATA / "cache" / "tags.json", tags_cache)

@@ -1,23 +1,24 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Liked Songs Analyse</title>
+  <title>Liked Songs</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <div>
-      <h1>Deine Liked Songs <span id="demo" class="badge" hidden>DEMO</span></h1>
+      <h1><span data-i18n="title">Your Liked Songs</span> <span id="demo" class="badge" hidden>DEMO</span></h1>
       <div class="meta" id="meta"></div>
     </div>
     <nav role="tablist">
-      <button role="tab" data-tab="overview" aria-selected="true">Übersicht</button>
-      <button role="tab" data-tab="network">Netzwerk-Map</button>
-      <button role="tab" data-tab="bubbles">Bubble-Map</button>
-      <button role="tab" data-tab="table">Alle Songs</button>
-      <button class="btn" id="theme" title="Hell/Dunkel umschalten">◐</button>
+      <button role="tab" data-tab="overview" aria-selected="true" data-i18n="tab_overview">Overview</button>
+      <button role="tab" data-tab="network" data-i18n="tab_network">Network map</button>
+      <button role="tab" data-tab="bubbles" data-i18n="tab_bubbles">Bubble map</button>
+      <button role="tab" data-tab="table" data-i18n="tab_table">All songs</button>
+      <button class="btn" id="lang" data-i18n="lang_switch" data-i18n-title="lang_title">DE</button>
+      <button class="btn" id="theme" data-i18n-title="theme_title" title="Toggle light/dark">◐</button>
     </nav>
   </header>
 
@@ -28,24 +29,24 @@
       <div class="stage" id="netStage">
         <canvas id="net"></canvas>
         <div class="panel">
-          <label for="netSearch">Künstler suchen</label>
-          <input type="search" id="netSearch" list="artistList" placeholder="Name …">
+          <label for="netSearch" data-i18n="search_artist">Find artist</label>
+          <input type="search" id="netSearch" list="artistList" data-i18n-ph="search_ph" placeholder="Name …">
           <datalist id="artistList"></datalist>
-          <label for="netColor">Farbe nach</label>
+          <label for="netColor" data-i18n="color_by">Color by</label>
           <select id="netColor">
-            <option value="genre">Genre</option>
-            <option value="community">Musik-Welt (Cluster)</option>
-            <option value="playlist">Deine Playlist</option>
+            <option value="genre" data-i18n="opt_genre">Style</option>
+            <option value="community" data-i18n="opt_world">Music world (cluster)</option>
+            <option value="playlist" data-i18n="opt_playlist">Your playlist</option>
           </select>
-          <label>Verbindungen</label>
-          <div class="row"><input type="checkbox" id="eFeat" checked><label for="eFeat" style="margin:0">Features (gemeinsame Songs)</label></div>
-          <div class="row"><input type="checkbox" id="eRel" checked><label for="eRel" style="margin:0">Verwandt laut YT Music</label></div>
-          <div class="row"><input type="checkbox" id="eTag"><label for="eTag" style="margin:0">Ähnliche Genre-Tags</label></div>
-          <label for="netMin">Mindestens <b id="netMinV">1</b> Song(s)</label>
+          <label data-i18n="connections">Connections</label>
+          <div class="row"><input type="checkbox" id="eFeat" checked><label for="eFeat" style="margin:0" data-i18n="e_feat">Features</label></div>
+          <div class="row"><input type="checkbox" id="eRel" checked><label for="eRel" style="margin:0" data-i18n="e_rel">Related</label></div>
+          <div class="row"><input type="checkbox" id="eTag"><label for="eTag" style="margin:0" data-i18n="e_tag">Similar tags</label></div>
+          <label for="netMin" data-i18n-html="min_songs">At least <b id="netMinV">1</b> song(s)</label>
           <input type="range" id="netMin" min="1" max="10" value="1" style="width:100%">
           <div class="legend" id="netLegend"></div>
-          <button class="btn" id="netFit" style="margin-top:8px">Ansicht einpassen</button>
-          <div class="hint">Mausrad: Zoom · Ziehen: verschieben · Klick: Details · Legende anklicken: hervorheben</div>
+          <button class="btn" id="netFit" style="margin-top:8px" data-i18n="fit">Fit to view</button>
+          <div class="hint" data-i18n="net_hint"></div>
         </div>
         <div class="panel detail" id="netDetail" hidden></div>
       </div>
@@ -55,20 +56,20 @@
       <div class="stage" id="packStage">
         <svg id="pack"></svg>
         <div class="panel">
-          <label for="packGroup">Gruppieren nach</label>
+          <label for="packGroup" data-i18n="group_by">Group by</label>
           <select id="packGroup">
-            <option value="genre">Genre → Künstler → Song</option>
-            <option value="community">Musik-Welt → Künstler → Song</option>
-            <option value="playlist">Playlist → Künstler → Song</option>
+            <option value="genre" data-i18n="g_genre">Style → artist → song</option>
+            <option value="community" data-i18n="g_world">Music world → artist → song</option>
+            <option value="playlist" data-i18n="g_playlist">Playlist → artist → song</option>
           </select>
-          <label for="packSize">Bubble-Größe</label>
+          <label for="packSize" data-i18n="bubble_size">Bubble size</label>
           <select id="packSize">
-            <option value="count">Gleich (1 Song = 1)</option>
-            <option value="plays">Wiedergaben</option>
-            <option value="dur">Songlänge</option>
+            <option value="count" data-i18n="s_count">Equal</option>
+            <option value="plays" data-i18n="s_plays">Plays</option>
+            <option value="dur" data-i18n="s_dur">Song length</option>
           </select>
           <div class="legend" id="packLegend"></div>
-          <div class="hint">Klick auf eine Bubble: hineinzoomen · Klick auf den Hintergrund: zurück</div>
+          <div class="hint" data-i18n="pack_hint"></div>
         </div>
         <div class="crumb" id="crumb"></div>
       </div>
@@ -76,7 +77,7 @@
 
     <section id="table" hidden>
       <div class="tablebar">
-        <input type="search" id="q" placeholder="Titel, Künstler, Album, Genre …">
+        <input type="search" id="q" data-i18n-ph="table_ph">
         <span id="qn" class="meta"></span>
       </div>
       <div class="tablewrap"><table id="tbl"></table></div>
@@ -86,6 +87,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
   <script src="data.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

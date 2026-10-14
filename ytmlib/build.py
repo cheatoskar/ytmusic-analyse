@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 import shutil
 import statistics
@@ -12,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from itertools import combinations
 from pathlib import Path
 
-from .common import DATA, OUT, WEB, artist_from_title, cache_dir, load_json, prepare_songs
+from .common import DATA, LANG, OUT, WEB, artist_from_title, cache_dir, load_json, prepare_songs, tr
 from .genres import OTHER, UNKNOWN, clean_tags, macro_genre
 
 LIKED_PLAYLIST_NAME = re.compile(r"lik|mag|gef[aä]ll|favorit", re.I)
@@ -22,22 +23,27 @@ VERSION_TAGS = {
     "Sped up": r"sped[\s-]?up|nightcore",
     "Slowed": r"slowed|reverb",
     "Live": r"\blive\b",
-    "Akustik": r"acoustic|akustik|unplugged",
+    "Acoustic": r"acoustic|akustik|unplugged",
     "Remaster": r"remaster",
     "Instrumental": r"instrumental",
     "Cover": r"\bcover\b",
     "feat.": r"\bfeat\.?|\bft\.|featuring|\bwith\b",
 }
 SET_SECONDS = 20 * 60
-SUB_BUCKETS = [(0, "< 10 Tsd."), (10_000, "10–100 Tsd."), (100_000, "100 Tsd.–1 Mio."),
-               (1_000_000, "1–10 Mio."), (10_000_000, "> 10 Mio.")]
+# Schluessel werden in der Oberflaeche uebersetzt (web/i18n.js)
+SUB_BUCKETS = [(0, "<10k"), (10_000, "10k-100k"), (100_000, "100k-1M"), (1_000_000, "1M-10M"), (10_000_000, ">10M")]
+LEGACY_TYPES = {"Musikvideo": "Music video", "Unbekannt": "Unknown"}
 
 
 def _tz():
+    """YTM_TZ (z. B. Europe/Berlin), sonst None = Systemzeitzone (astimezone(None), sommerzeitrichtig)."""
+    name = os.environ.get("YTM_TZ")
+    if not name:
+        return None
     try:
         from zoneinfo import ZoneInfo
-        return ZoneInfo("Europe/Berlin")
-    except Exception:  # noqa: BLE001 - ohne tzdata: UTC
+        return ZoneInfo(name)
+    except Exception:  # noqa: BLE001
         return timezone.utc
 
 
@@ -79,8 +85,11 @@ def _artist_tags(name: str, tag_cache: dict) -> tuple[list[str], dict]:
 def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Path:
     liked = load_json(data_dir / "liked_songs.json")
     if not liked:
-        sys.exit("FEHLT: data/liked_songs.json. Zuerst 'python ytm.py fetch' ausfuehren.")
+        sys.exit(tr("FEHLT: data/liked_songs.json. Zuerst 'python ytm.py fetch' ausführen.",
+                    "MISSING: data/liked_songs.json. Run 'python ytm.py fetch' first."))
     songs, cleanup = prepare_songs(liked["songs"])
+    for s in songs:
+        s["type"] = LEGACY_TYPES.get(s["type"], s["type"])
     cdir = cache_dir(data_dir)
     albums = load_json(cdir / "albums.json", {})
     yt_artists = load_json(cdir / "artists.json", {})
@@ -179,7 +188,7 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
     singles = sum(1 for c in artist_song_counts.values() if c == 1)
 
     genre_counts = Counter(s["genre"] for s in songs)
-    decade_counts = Counter(f"{y // 10 * 10}er" for y in years)
+    decade_counts = Counter(y // 10 * 10 for y in years)
     year_counts = Counter(years)
     country_counts = Counter()
     for s in songs:
@@ -218,7 +227,7 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         dts = [(datetime.fromisoformat(s["likedAt"]).astimezone(tz), collapse(s["genre"])) for s in dated]
         quarters = {(d.year, (d.month - 1) // 3) for d, _ in dts}
         by_year = len(quarters) > 16
-        evolution["mode"] = "Jahr (Like-Datum)" if by_year else "Quartal (Like-Datum)"
+        evolution["mode"] = "liked_year" if by_year else "liked_quarter"
         groups = defaultdict(Counter)
         for d, g in dts:
             groups[str(d.year) if by_year else f"{d.year} Q{(d.month - 1) // 3 + 1}"][g] += 1
@@ -227,12 +236,12 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         evolution["buckets"] = [{"label": k, "counts": dict(groups[k])} for k in sorted(groups)
                                 if sum(groups[k].values()) >= min_n]
     elif n >= 20:
-        evolution["mode"] = "Like-Reihenfolge (10 gleich große Abschnitte, alt → neu)"
+        evolution["mode"] = "order"
         ordered = sorted(songs, key=lambda s: -s["position"])
         size = n / 10
         for i in range(10):
             chunk = ordered[int(i * size): int((i + 1) * size)]
-            evolution["buckets"].append({"label": f"{i * 10}–{(i + 1) * 10} %",
+            evolution["buckets"].append({"label": f"{i * 10}–{(i + 1) * 10}%",
                                          "counts": dict(Counter(collapse(s["genre"]) for s in chunk))})
 
     pl_stats = []
@@ -402,7 +411,7 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
     kidx = {k: i for i, k in enumerate(keys)}
     payload = {
         "meta": {"generated": datetime.now().isoformat(timespec="minutes"), "fetched": liked.get("fetched_at"),
-                 "demo": demo, "genres": color_styles, "unknown": UNKNOWN, "other": OTHER,
+                 "demo": demo, "genres": color_styles, "unknown": UNKNOWN, "other": OTHER, "lang": LANG,
                  "playlists": pl_names},
         "stats": stats,
         "communities": comm_info,
@@ -416,11 +425,11 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
                    "v": s["videoId"], "av": int(s["available"]), "pl": s["pl"]}
                   for s in songs],
     }
-    for name in ("index.html", "app.js", "style.css"):
+    for name in ("index.html", "app.js", "i18n.js", "style.css"):
         shutil.copy(WEB / name, out_dir / name)
     (out_dir / "data.js").write_text("window.DATA = " + json.dumps(payload, ensure_ascii=False) + ";\n",
                                      encoding="utf-8")
-    _write_csv(out_dir / "songs.csv", songs, artists)
+    _write_csv(out_dir / "songs.csv", songs, pl_names)
     _write_report(out_dir / "report.md", stats, comm_info)
     nx.write_gexf(_labelled(G, artists), out_dir / "kuenstler_netzwerk.gexf")
     print(f"OK: {out_dir / 'index.html'}")
@@ -436,17 +445,17 @@ def _labelled(G, artists):
     return H
 
 
-def _write_csv(path: Path, songs: list[dict], artists: dict) -> None:
+def _write_csv(path: Path, songs: list[dict], pl_names: list[str]) -> None:
     cols = ["position", "title", "artists", "album", "year", "duration_s", "genre", "tags", "explicit",
-            "type", "plays", "likedAt", "videoId"]
-    # Semikolon + BOM, damit ein deutsches Excel die Datei direkt richtig oeffnet
+            "type", "plays", "playlists", "likedAt", "videoId"]
+    # BOM fuer Excel; Trennzeichen passend zur Sprache (deutsches Excel erwartet ';')
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.writer(f, delimiter=";")
+        w = csv.writer(f, delimiter=";" if LANG == "de" else ",")
         w.writerow(cols)
         for s in songs:
             w.writerow([s["position"], s["title"], ", ".join(a["name"] for a in s["artists"]), s.get("album"),
                         s.get("year"), s.get("duration_s"), s["genre"], ", ".join(s["tags"]), int(s["explicit"]),
-                        s["type"], s["plays"], s.get("likedAt"), s["videoId"]])
+                        s["type"], s["plays"], ", ".join(pl_names[i] for i in s["pl"]), s.get("likedAt"), s["videoId"]])
 
 
 def _fmt_dur(sec: int) -> str:
@@ -455,30 +464,49 @@ def _fmt_dur(sec: int) -> str:
 
 
 def _write_report(path: Path, st: dict, comms: list[dict]) -> None:
-    L = ["# YT Music Liked Songs – Auswertung", ""]
-    c = st["cleanup"]
-    L += [f"- Abgerufen: {c['fetched']} Einträge (YouTube Music meldet {c['declared']}), "
-          f"{c['duplicates_removed']} Duplikate entfernt; bei {c['uploads_parsed']} Uploads Künstler aus dem Titel gelesen",
-          f"- Songs: **{st['songs']}**, Künstler: **{st['artists']}**, Alben: **{st['albums']}**",
-          f"- Gesamtlänge: **{_fmt_dur(st['total_duration_s'])}**, davon {st['sets']} DJ-Sets/Mixe (> 20 min) "
-          f"mit {_fmt_dur(st['sets_duration_s'])}",
-          f"- Songs ohne Sets: Ø {st['avg_duration_s']} s, Median {st['median_duration_s']} s",
-          f"- Explicit: {st['explicit_pct']} %, nicht mehr verfügbar: {st['unavailable']}",
-          f"- Top-10-Künstler machen {st['top10_artist_pct']} % aller Songs aus; "
-          f"{st['single_song_artist_pct']} % der Künstler kommen nur mit einem Song vor",
-          f"- Kollaborationen: {st['collab_pct']} % der Songs",
-          f"- Median-Erscheinungsjahr: {st['median_year']} (Jahr bekannt bei {st['year_known_pct']} %)",
-          f"- Genre bekannt bei {st['genre_known_pct']} %", ""]
-    L += ["## Genres", ""] + [f"- {g}: {c} ({_share(c, st['songs'])} %)" for g, c in st["genres"]] + [""]
-    L += ["## Top-Künstler", ""] + [f"{i}. {a} – {c}" for i, (a, c, _) in enumerate(st["top_artists"], 1)] + [""]
-    L += ["## Musik-Welten (Cluster)", ""] + [f"- **{c['name']}** – {c['songs']} Songs, {c['artists']} Künstler: "
-                                               f"{', '.join(c['top'])}" for c in comms[:12]] + [""]
+    c, n = st["cleanup"], st["songs"]
+    L = [tr("# YT Music Liked Songs – Auswertung", "# YT Music liked songs – analysis"), ""]
+    L += [tr(f"- Abgerufen: {c['fetched']} Einträge (YouTube Music meldet {c['declared']}), "
+             f"{c['duplicates_removed']} Duplikate entfernt; bei {c['uploads_parsed']} Uploads Künstler aus dem Titel gelesen",
+             f"- Fetched: {c['fetched']} entries (YouTube Music reports {c['declared']}), "
+             f"{c['duplicates_removed']} duplicates removed; artist read from the title for {c['uploads_parsed']} uploads"),
+          tr(f"- Songs: **{n}**, Künstler: **{st['artists']}**, Alben: **{st['albums']}**",
+             f"- Songs: **{n}**, artists: **{st['artists']}**, albums: **{st['albums']}**"),
+          tr(f"- Gesamtlänge: **{_fmt_dur(st['total_duration_s'])}**, davon {st['sets']} DJ-Sets/Mixe (> 20 min) "
+             f"mit {_fmt_dur(st['sets_duration_s'])}",
+             f"- Total length: **{_fmt_dur(st['total_duration_s'])}**, of which {st['sets']} DJ sets/mixes (> 20 min) "
+             f"take {_fmt_dur(st['sets_duration_s'])}"),
+          tr(f"- Songs ohne Sets: Ø {st['avg_duration_s']} s, Median {st['median_duration_s']} s",
+             f"- Songs without sets: mean {st['avg_duration_s']} s, median {st['median_duration_s']} s"),
+          tr(f"- Explicit: {st['explicit_pct']} %, nicht mehr verfügbar: {st['unavailable']}",
+             f"- Explicit: {st['explicit_pct']}%, unavailable: {st['unavailable']}"),
+          tr(f"- Top-10-Künstler machen {st['top10_artist_pct']} % aller Songs aus; "
+             f"{st['single_song_artist_pct']} % der Künstler kommen nur mit einem Song vor",
+             f"- The top 10 artists make up {st['top10_artist_pct']}% of all songs; "
+             f"{st['single_song_artist_pct']}% of artists appear with a single song"),
+          tr(f"- Kollaborationen: {st['collab_pct']} % der Songs", f"- Collaborations: {st['collab_pct']}% of songs"),
+          tr(f"- Median-Erscheinungsjahr: {st['median_year']} (Jahr bekannt bei {st['year_known_pct']} %)",
+             f"- Median release year: {st['median_year']} (year known for {st['year_known_pct']}%)"),
+          tr(f"- Stil bekannt bei {st['genre_known_pct']} %", f"- Style known for {st['genre_known_pct']}%"), ""]
+    L += [tr("## Stile", "## Styles"), ""] + [f"- {g}: {v} ({_share(v, n)} %)" for g, v in st["genres"]] + [""]
+    L += [tr("## Top-Künstler", "## Top artists"), ""] + [f"{i}. {a} – {v}" for i, (a, v, _) in enumerate(st["top_artists"], 1)] + [""]
+    if st.get("playlists"):
+        L += [tr("## Playlists (Liked Songs / gesamt, häufigste Stile)", "## Playlists (liked songs / total, top styles)"), ""]
+        L += [f"- {p['name']}: {p['liked']} / {p['total']} – {', '.join(p['top'])}" for p in st["playlists"]] + [""]
+    L += [tr("## Musik-Welten (Cluster)", "## Music worlds (clusters)"), ""]
+    L += [tr(f"- **{w['name']}** – {w['songs']} Songs, {w['artists']} Künstler: ", f"- **{w['name']}** – {w['songs']} songs, {w['artists']} artists: ")
+          + ", ".join(w["top"]) for w in comms[:12]] + [""]
     if "plays" in st:
         p = st["plays"]
-        L += ["## Wiedergaben (Takeout)", "",
-              f"- {p['total']} Wiedergaben ({p['first']} bis {p['last']}), {p['unique']} verschiedene Titel",
-              f"- Aktive Tage: {p['active_days']}, längste Serie: {p['best_streak_days']} Tage",
-              f"- {p['liked_share_pct']} % der Wiedergaben sind Liked Songs; "
-              f"{p['liked_never_played']} Liked Songs nie gespielt (im Verlaufszeitraum)", ""]
-        L += ["### Meistgespielt", ""] + [f"{i}. {t} – {a}: {c}" for i, (t, a, c, _) in enumerate(p["top_songs"], 1)]
+        L += [tr("## Wiedergaben (Takeout)", "## Plays (Takeout)"), "",
+              tr(f"- {p['total']} Wiedergaben ({p['first']} bis {p['last']}), {p['unique']} verschiedene Titel",
+                 f"- {p['total']} plays ({p['first']} to {p['last']}), {p['unique']} distinct tracks"),
+              tr(f"- Aktive Tage: {p['active_days']}, längste Serie: {p['best_streak_days']} Tage",
+                 f"- Active days: {p['active_days']}, longest streak: {p['best_streak_days']} days"),
+              tr(f"- {p['liked_share_pct']} % der Wiedergaben sind Liked Songs; "
+                 f"{p['liked_never_played']} Liked Songs nie gespielt (im Verlaufszeitraum)",
+                 f"- {p['liked_share_pct']}% of plays are liked songs; "
+                 f"{p['liked_never_played']} liked songs never played (in the history period)"), ""]
+        L += [tr("### Meistgespielt", "### Most played"), ""]
+        L += [f"{i}. {ti} – {a}: {v}" for i, (ti, a, v, _) in enumerate(p["top_songs"], 1)]
     path.write_text("\n".join(L) + "\n", encoding="utf-8")

@@ -4,13 +4,13 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 
-from .common import DATA, ROOT, save_json
+from .common import DATA, ROOT, save_json, tr
 
 VIDEO_TYPES = {
     "MUSIC_VIDEO_TYPE_ATV": "Song",
-    "MUSIC_VIDEO_TYPE_OMV": "Musikvideo",
+    "MUSIC_VIDEO_TYPE_OMV": "Music video",
     "MUSIC_VIDEO_TYPE_UGC": "Upload",
-    "MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC": "Musikvideo",
+    "MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC": "Music video",
     "MUSIC_VIDEO_TYPE_PODCAST_EPISODE": "Podcast",
 }
 
@@ -33,7 +33,7 @@ def normalize(track: dict, position: int) -> dict:
         "duration_s": track.get("duration_seconds"),
         "explicit": bool(track.get("isExplicit")),
         "available": track.get("isAvailable", True) is not False,
-        "type": VIDEO_TYPES.get(track.get("videoType"), track.get("videoType") or "Unbekannt"),
+        "type": VIDEO_TYPES.get(track.get("videoType"), track.get("videoType") or "Unknown"),
         "thumb": thumbs[0]["url"] if thumbs else None,
     }
 
@@ -41,11 +41,9 @@ def normalize(track: dict, position: int) -> dict:
 def run(auth_file: str = "browser.json") -> None:
     auth = ROOT / auth_file
     if not auth.exists():
-        sys.exit(
-            f"FEHLT: {auth.name}\n"
-            "Erzeuge sie mit:  .venv\\Scripts\\ytmusicapi browser\n"
-            "(Anleitung: README.md, Schritt 3)"
-        )
+        sys.exit(tr(
+            f"FEHLT: {auth.name}. Anleitung: README.de.md, Schritt 3.",
+            f"MISSING: {auth.name}. See README.md, step 3."))
     import json
 
     from ytmusicapi import YTMusic
@@ -53,21 +51,23 @@ def run(auth_file: str = "browser.json") -> None:
     try:
         cookie = json.loads(auth.read_text(encoding="utf-8")).get("cookie", "")
     except ValueError as e:
-        sys.exit(f"{auth.name} ist kein gültiges JSON mehr ({e}). Steht der Cookie in einer Zeile zwischen den Anführungszeichen?")
+        sys.exit(tr(f"{auth.name} ist kein gültiges JSON mehr ({e}). Steht der Cookie in einer Zeile zwischen den Anführungszeichen?",
+                    f"{auth.name} is no longer valid JSON ({e}). Is the cookie on one line between the quotes?"))
     if "HIER_DEINEN_COOKIE" in cookie:
-        sys.exit(f"In {auth.name} steht noch der Platzhalter. Cookie-Wert einfügen (README, Schritt 3).")
+        sys.exit(tr(f"In {auth.name} steht noch der Platzhalter. Cookie-Wert einfügen (README, Schritt 3).",
+                    f"{auth.name} still contains the placeholder. Paste your cookie value (README, step 3)."))
     if "__Secure-3PAPISID=" not in cookie:
-        sys.exit("Im Cookie fehlt __Secure-3PAPISID. Wahrscheinlich unvollständig kopiert, oder du warst nicht eingeloggt.")
+        sys.exit(tr("Im Cookie fehlt __Secure-3PAPISID. Wahrscheinlich unvollständig kopiert, oder du warst nicht eingeloggt.",
+                    "The cookie lacks __Secure-3PAPISID. It was probably copied incompletely, or you were not logged in."))
 
-    print("Verbinde mit YouTube Music ...")
+    print(tr("Verbinde mit YouTube Music ...", "Connecting to YouTube Music ..."))
     yt = YTMusic(str(auth))
     try:
         playlist = yt.get_liked_songs(limit=None)
     except Exception as e:  # noqa: BLE001 - Fehlermeldung fuer den Nutzer aufbereiten
-        sys.exit(
-            f"Abruf fehlgeschlagen: {e}\n"
-            "Meist ist die Anmeldung abgelaufen. browser.json neu erzeugen (README, Schritt 3)."
-        )
+        sys.exit(tr(
+            f"Abruf fehlgeschlagen: {e}\nMeist ist die Anmeldung abgelaufen. browser.json neu erzeugen (README, Schritt 3).",
+            f"Fetch failed: {e}\nUsually the login expired. Recreate browser.json (README, step 3)."))
     tracks = playlist.get("tracks") or []
     songs = [normalize(t, i) for i, t in enumerate(tracks) if t.get("videoId")]
     save_json(DATA / "liked_raw.json", playlist)
@@ -81,6 +81,7 @@ def run(auth_file: str = "browser.json") -> None:
         },
     )
     declared = playlist.get("trackCount")
-    print(f"OK: {len(songs)} Songs gespeichert in data/liked_songs.json")
+    print(tr(f"OK: {len(songs)} Songs gespeichert in data/liked_songs.json", f"OK: saved {len(songs)} songs to data/liked_songs.json"))
     if declared and abs(int(declared) - len(songs)) > 5:
-        print(f"Hinweis: YouTube Music meldet {declared} Songs, abgerufen wurden {len(songs)}.")
+        print(tr(f"Hinweis: YouTube Music meldet {declared} Songs, abgerufen wurden {len(songs)}.",
+                 f"Note: YouTube Music reports {declared} songs, {len(songs)} were returned."))

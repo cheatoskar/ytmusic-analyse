@@ -1,11 +1,13 @@
-"""YT Music Liked Songs – Export & Auswertung.
+"""YT Music liked songs – export & analysis.
 
-    python ytm.py fetch               Liked Songs abrufen (braucht browser.json)
-    python ytm.py enrich              Jahre, Kuenstler, Genres, Herkunft nachladen
-    python ytm.py takeout <zip|ordner>  Google-Takeout einlesen (optional)
-    python ytm.py build               Auswertung + interaktive Seite erzeugen
-    python ytm.py open                Seite im Browser oeffnen
-    python ytm.py demo                Alles mit erfundenen Daten testen
+    python ytm.py fetch                  fetch liked songs (needs browser.json)
+    python ytm.py enrich                 add years, artists, styles, origin
+    python ytm.py takeout <zip|folder>   import Google Takeout (optional)
+    python ytm.py build                  build the analysis and interactive page
+    python ytm.py open                   open the page in the browser
+    python ytm.py demo                   try everything with made-up data
+
+Language: YTM_LANG=de or YTM_LANG=en (default: system language).
 """
 from __future__ import annotations
 
@@ -14,24 +16,26 @@ import os
 import sys
 import webbrowser
 
-from ytmlib.common import OUT, ROOT
+from ytmlib.common import OUT, tr
 
 
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    p = argparse.ArgumentParser(description="YT Music Liked Songs – Export & Auswertung")
+    p = argparse.ArgumentParser(description=tr("YT Music Liked Songs – Export & Auswertung",
+                                               "YT Music liked songs – export & analysis"))
     sub = p.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("fetch", help="Liked Songs abrufen")
-    e = sub.add_parser("enrich", help="Metadaten nachladen")
-    e.add_argument("--no-albums", action="store_true")
-    e.add_argument("--no-artists", action="store_true")
-    e.add_argument("--no-tags", action="store_true")
-    t = sub.add_parser("takeout", help="Google-Takeout einlesen")
-    t.add_argument("source", help="Pfad zur Takeout-ZIP oder zum entpackten Ordner")
-    sub.add_parser("build", help="Auswertung erzeugen")
-    sub.add_parser("open", help="Ergebnis im Browser oeffnen")
-    sub.add_parser("demo", help="Test mit Beispieldaten")
+    sub.add_parser("fetch", help=tr("Liked Songs abrufen", "fetch liked songs"))
+    e = sub.add_parser("enrich", help=tr("Metadaten nachladen", "add metadata"))
+    e.add_argument("--no-albums", action="store_true", help=tr("Alben überspringen", "skip albums"))
+    e.add_argument("--no-artists", action="store_true", help=tr("Künstler überspringen", "skip artists"))
+    e.add_argument("--no-tags", action="store_true", help=tr("Tags/Herkunft überspringen", "skip tags/origin"))
+    t = sub.add_parser("takeout", help=tr("Google Takeout einlesen", "import Google Takeout"))
+    t.add_argument("source", help=tr("Pfad zur Takeout-ZIP oder zum entpackten Ordner",
+                                     "path to the Takeout ZIP or extracted folder"))
+    sub.add_parser("build", help=tr("Auswertung erzeugen", "build the analysis"))
+    sub.add_parser("open", help=tr("Ergebnis im Browser öffnen", "open the result in the browser"))
+    sub.add_parser("demo", help=tr("Test mit Beispieldaten", "try with sample data"))
     a = p.parse_args()
 
     if a.cmd == "fetch":
@@ -49,7 +53,7 @@ def main() -> None:
     elif a.cmd == "open":
         target = OUT / "index.html"
         if not target.exists():
-            sys.exit("Noch nichts gebaut. Zuerst: python ytm.py build")
+            sys.exit(tr("Noch nichts gebaut. Zuerst: python ytm.py build", "Nothing built yet. Run: python ytm.py build"))
         webbrowser.open(target.as_uri())
     elif a.cmd == "demo":
         from ytmlib.demo import DEMO_OUT, run
@@ -59,5 +63,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, str(ROOT))
     main()

@@ -31,13 +31,13 @@ STYLES: list[tuple[str, list[str]]] = [
     ("R&B/Soul", ["r&b", "rnb", "rhythm and blues", "soul", "funk", "motown", "gospel"]),
     ("Latin/Reggae", ["latin", "reggaeton", "reggae", "dancehall", "salsa", "bachata", "baile"]),
     ("Folk/Singer-Songwriter", ["folk", "singer-songwriter", "acoustic", "americana", "country"]),
-    ("Jazz/Klassik/Film", ["jazz", "classical", "klassik", "soundtrack", "score", "instrumental", "piano",
+    ("Jazz/Classical/Film", ["jazz", "classical", "klassik", "soundtrack", "score", "instrumental", "piano",
                            "orchestra", "blues", "video game"]),
-    ("Elektronisch (sonstige)", ["electronic", "elektronisch", "synthwave", "synthpop"]),
+    ("Electronic (other)", ["electronic", "elektronisch", "synthwave", "synthpop"]),
 ]
 STYLE_NAMES = [m for m, _ in STYLES]
-UNKNOWN = "Unbekannt"
-OTHER = "Weitere Stile"
+UNKNOWN = "Unknown"
+OTHER = "Other styles"
 
 # Tags ohne Aussage ueber den Stil
 TAG_BLOCKLIST = {
@@ -45,6 +45,8 @@ TAG_BLOCKLIST = {
     "male vocalists", "female vocalists", "male vocalist", "female vocalist", "spotify", "all",
     "under 2000 listeners", "good", "best", "amazing", "cool", "musician", "artist", "band", "producer",
     "dj", "djs", "remix", "remixer", "german", "deutsch", "british", "american", "dutch", "swedish", "australian",
+    "uk", "usa", "us", "england", "english", "scotland", "scottish", "canada", "canadian", "france", "french",
+    "germany", "netherlands", "sweden", "norway", "norwegian", "belgian", "italian", "spanish", "irish",
 }
 
 _KEYWORDS = sorted(((k, name) for name, ks in STYLES for k in ks), key=lambda x: -len(x[0]))
@@ -73,7 +75,7 @@ def macro_genre(tags: list[str]) -> str:
     for rank, tag in enumerate(tags[:8]):
         name = style_of_tag(tag)
         if name:
-            w = 1 / (1 + rank) * (0.5 if name == "Elektronisch (sonstige)" else 1)
+            w = 1 / (1 + rank) * (0.5 if name == "Electronic (other)" else 1)
             scores[name] = scores.get(name, 0) + w
     if not scores:
         return UNKNOWN

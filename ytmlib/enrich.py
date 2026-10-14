@@ -13,17 +13,18 @@ import os
 import sys
 import time
 
-from .common import DATA, ROOT, Progress, cache_dir, load_env, load_json, parse_count, prepare_songs, save_json
+from .common import DATA, ROOT, Progress, cache_dir, load_env, load_json, parse_count, prepare_songs, save_json, tr
 
 MB_URL = "https://musicbrainz.org/ws/2/artist/"
 LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
-USER_AGENT = "ytmusic-analyse/0.1 (private, nicht-kommerzielle Auswertung)"
+USER_AGENT = "ytmusic-analyse/0.2 (personal, non-commercial; https://github.com/)"
 
 
 def _songs() -> list[dict]:
     liked = load_json(DATA / "liked_songs.json")
     if not liked:
-        sys.exit("FEHLT: data/liked_songs.json. Zuerst 'python ytm.py fetch' ausfuehren.")
+        sys.exit(tr("FEHLT: data/liked_songs.json. Zuerst 'python ytm.py fetch' ausführen.",
+                    "MISSING: data/liked_songs.json. Run 'python ytm.py fetch' first."))
     return prepare_songs(liked["songs"])[0]
 
 
@@ -39,10 +40,10 @@ def enrich_albums(songs: list[dict]) -> None:
     path = cache_dir(DATA) / "albums.json"
     cache = load_json(path, {})
     todo = sorted({s["albumId"] for s in songs if s.get("albumId")} - cache.keys())
-    print(f"Alben: {len(cache)} im Cache, {len(todo)} offen")
+    print(tr(f"Alben: {len(cache)} im Cache, {len(todo)} offen", f"Albums: {len(cache)} cached, {len(todo)} to do"))
     if not todo:
         return
-    yt, prog = _yt(), Progress(len(todo), "Alben", every=25)
+    yt, prog = _yt(), Progress(len(todo), tr("Alben", "Albums"), every=25)
     for i, album_id in enumerate(todo):
         try:
             a = yt.get_album(album_id)
@@ -66,10 +67,10 @@ def enrich_artists(songs: list[dict]) -> None:
     cache = load_json(path, {})
     ids = {a["id"] for s in songs for a in s["artists"] if a.get("id")}
     todo = sorted(ids - cache.keys())
-    print(f"Kuenstler (YT Music): {len(cache)} im Cache, {len(todo)} offen")
+    print(tr(f"Künstler (YT Music): {len(cache)} im Cache, {len(todo)} offen", f"Artists (YT Music): {len(cache)} cached, {len(todo)} to do"))
     if not todo:
         return
-    yt, prog = _yt(), Progress(len(todo), "Kuenstler", every=25)
+    yt, prog = _yt(), Progress(len(todo), tr("Künstler", "Artists"), every=25)
     for i, artist_id in enumerate(todo):
         try:
             a = yt.get_artist(artist_id)
@@ -144,8 +145,10 @@ def enrich_tags(songs: list[dict]) -> None:
     # Eintraege ohne Last.fm-Tags nachholen, sobald ein Key vorhanden ist
     todo = [n for n in names if n.casefold() not in cache or (key and "lastfm" not in cache[n.casefold()])]
     est = len(todo) * (1.1 + (0.25 if key else 0)) / 60
-    print(f"Tags/Herkunft: {len(cache)} im Cache, {len(todo)} offen (~{est:.0f} min)"
-          + ("" if key else "  [ohne Last.fm-Key: nur MusicBrainz, Genres lueckenhafter]"))
+    print(tr(f"Tags/Herkunft: {len(cache)} im Cache, {len(todo)} offen (~{est:.0f} min)",
+             f"Tags/origin: {len(cache)} cached, {len(todo)} to do (~{est:.0f} min)")
+          + ("" if key else tr("  [ohne Last.fm-Key: nur MusicBrainz, Stile lückenhafter]",
+                               "  [no Last.fm key: MusicBrainz only, styles less complete]")))
     if not todo:
         return
     session = requests.Session()
@@ -180,4 +183,4 @@ def run(albums: bool = True, artists: bool = True, tags: bool = True) -> None:
         enrich_artists(songs)
     if tags:
         enrich_tags(songs)
-    print("Anreicherung fertig. Weiter mit: python ytm.py build")
+    print(tr("Anreicherung fertig. Weiter mit: python ytm.py build", "Enrichment done. Next: python ytm.py build"))
