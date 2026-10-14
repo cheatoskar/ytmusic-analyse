@@ -46,7 +46,18 @@ def run(auth_file: str = "browser.json") -> None:
             "Erzeuge sie mit:  .venv\\Scripts\\ytmusicapi browser\n"
             "(Anleitung: README.md, Schritt 3)"
         )
+    import json
+
     from ytmusicapi import YTMusic
+
+    try:
+        cookie = json.loads(auth.read_text(encoding="utf-8")).get("cookie", "")
+    except ValueError as e:
+        sys.exit(f"{auth.name} ist kein gültiges JSON mehr ({e}). Steht der Cookie in einer Zeile zwischen den Anführungszeichen?")
+    if "HIER_DEINEN_COOKIE" in cookie:
+        sys.exit(f"In {auth.name} steht noch der Platzhalter. Cookie-Wert einfügen (README, Schritt 3).")
+    if "__Secure-3PAPISID=" not in cookie:
+        sys.exit("Im Cookie fehlt __Secure-3PAPISID. Wahrscheinlich unvollständig kopiert, oder du warst nicht eingeloggt.")
 
     print("Verbinde mit YouTube Music ...")
     yt = YTMusic(str(auth))

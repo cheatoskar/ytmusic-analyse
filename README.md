@@ -55,6 +55,10 @@ Das machst du selbst; die Datei enthält dein Login-Cookie und bleibt nur auf de
    ```
    Header einfügen, **Enter**, dann **Strg+Z** und nochmal **Enter**. Danach liegt `browser.json` im Ordner.
 
+**Einfacher:** Liegt schon eine `browser.json` mit `HIER_DEINEN_COOKIE_EINFUEGEN` im Ordner, nur den
+Platzhalter durch den Wert des `cookie`-Headers ersetzen (in den DevTools: Rechtsklick auf den
+`cookie`-Header → *Wert kopieren*). Eine Zeile, zwischen den Anführungszeichen.
+
 Wichtig: Dich in diesem Browser **nicht bei YouTube abmelden**, sonst wird das Cookie ungültig.
 (ytmusicapi markiert diese Methode als „deprecated“, sie funktioniert aber. Wenn sie irgendwann bricht:
 Schritt 3 wiederholen.)
