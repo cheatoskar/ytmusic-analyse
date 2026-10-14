@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from itertools import combinations
 from pathlib import Path
 
-from .common import DATA, OUT, WEB, cache_dir, load_json
+from .common import DATA, OUT, WEB, cache_dir, load_json, prepare_songs
 from .genres import MACRO_NAMES, UNKNOWN, clean_tags, macro_genre
 
 LIKED_PLAYLIST_NAME = re.compile(r"lik|mag|gef[aä]ll|favorit", re.I)
@@ -27,6 +27,7 @@ VERSION_TAGS = {
     "Cover": r"\bcover\b",
     "feat.": r"\bfeat\.?|\bft\.|featuring|\bwith\b",
 }
+SET_SECONDS = 20 * 60
 SUB_BUCKETS = [(0, "< 10 Tsd."), (10_000, "10–100 Tsd."), (100_000, "100 Tsd.–1 Mio."),
                (1_000_000, "1–10 Mio."), (10_000_000, "> 10 Mio.")]
 
@@ -78,7 +79,7 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
     liked = load_json(data_dir / "liked_songs.json")
     if not liked:
         sys.exit("FEHLT: data/liked_songs.json. Zuerst 'python ytm.py fetch' ausfuehren.")
-    songs = liked["songs"]
+    songs, cleanup = prepare_songs(liked["songs"])
     cdir = cache_dir(data_dir)
     albums = load_json(cdir / "albums.json", {})
     yt_artists = load_json(cdir / "artists.json", {})
@@ -139,7 +140,10 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
             artists[k]["plays"] += s["plays"]
 
     n = len(songs)
-    durations = [s["duration_s"] for s in songs if s.get("duration_s")]
+    all_durations = [s["duration_s"] for s in songs if s.get("duration_s")]
+    # DJ-Sets/Mixe (> 20 min) verzerren Durchschnitt und Verteilung: getrennt ausweisen
+    durations = [d for d in all_durations if d <= SET_SECONDS]
+    sets = [d for d in all_durations if d > SET_SECONDS]
     years = [s["year"] for s in songs if s.get("year")]
 
     # ---------- Kennzahlen ----------
@@ -209,7 +213,9 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
         "songs": n,
         "artists": len(artists),
         "albums": len({s["albumId"] for s in songs if s.get("albumId")}),
-        "total_duration_s": sum(durations),
+        "total_duration_s": sum(all_durations),
+        "sets": len(sets),
+        "sets_duration_s": sum(sets),
         "avg_duration_s": round(statistics.mean(durations)) if durations else None,
         "median_duration_s": round(statistics.median(durations)) if durations else None,
         "explicit_pct": _share(sum(s["explicit"] for s in songs), n),
@@ -240,6 +246,8 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
                    for s in sorted((s for s in songs if s.get("year")), key=lambda s: s["year"])[:10]],
         "evolution": evolution,
         "liked_source": liked_source,
+        "cleanup": {**cleanup, "fetched": len(liked["songs"]),
+                    "declared": liked.get("declared") or (load_json(data_dir / "liked_raw.json") or {}).get("trackCount")},
     }
 
     # ---------- Wiedergaben (Takeout) ----------
@@ -403,8 +411,13 @@ def _fmt_dur(sec: int) -> str:
 
 def _write_report(path: Path, st: dict, comms: list[dict]) -> None:
     L = ["# YT Music Liked Songs – Auswertung", ""]
-    L += [f"- Songs: **{st['songs']}**, Künstler: **{st['artists']}**, Alben: **{st['albums']}**",
-          f"- Gesamtlänge: **{_fmt_dur(st['total_duration_s'])}**, Ø {st['avg_duration_s']} s, Median {st['median_duration_s']} s",
+    c = st["cleanup"]
+    L += [f"- Abgerufen: {c['fetched']} Einträge (YouTube Music meldet {c['declared']}), "
+          f"{c['duplicates_removed']} Duplikate entfernt; bei {c['uploads_parsed']} Uploads Künstler aus dem Titel gelesen",
+          f"- Songs: **{st['songs']}**, Künstler: **{st['artists']}**, Alben: **{st['albums']}**",
+          f"- Gesamtlänge: **{_fmt_dur(st['total_duration_s'])}**, davon {st['sets']} DJ-Sets/Mixe (> 20 min) "
+          f"mit {_fmt_dur(st['sets_duration_s'])}",
+          f"- Songs ohne Sets: Ø {st['avg_duration_s']} s, Median {st['median_duration_s']} s",
           f"- Explicit: {st['explicit_pct']} %, nicht mehr verfügbar: {st['unavailable']}",
           f"- Top-10-Künstler machen {st['top10_artist_pct']} % aller Songs aus; "
           f"{st['single_song_artist_pct']} % der Künstler kommen nur mit einem Song vor",

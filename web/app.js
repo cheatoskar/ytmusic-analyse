@@ -178,8 +178,12 @@
     function render() {
       root.innerHTML = '';
       const kp = [
-        [fmt(S.songs), 'Liked Songs', S.unavailable ? `${fmt(S.unavailable)} nicht mehr verfügbar` : 'alle verfügbar'],
-        [`${fmt(Math.round(S.total_duration_s / 3600))} h`, 'Gesamtlänge', `Ø ${dur(S.avg_duration_s)} pro Song`],
+        [fmt(S.songs), 'Liked Songs', [
+          S.cleanup?.declared && S.cleanup.declared !== S.songs ? `YT Music meldet ${fmt(S.cleanup.declared)}` : '',
+          S.cleanup?.duplicates_removed ? `${fmt(S.cleanup.duplicates_removed)} Duplikate entfernt` : '',
+          S.unavailable ? `${fmt(S.unavailable)} nicht verfügbar` : ''].filter(Boolean).join(' · ')],
+        [`${fmt(Math.round(S.total_duration_s / 3600))} h`, 'Gesamtlänge',
+          S.sets ? `davon ${fmt(Math.round(S.sets_duration_s / 3600))} h in ${fmt(S.sets)} DJ-Sets · Song-Ø ${dur(S.avg_duration_s)}` : `Ø ${dur(S.avg_duration_s)} pro Song`],
         [fmt(S.artists), 'Künstler', `${pctv(S.single_song_artist_pct)} nur mit einem Song`],
         [fmt(S.albums), 'Alben', ''],
         [pctv(S.top10_artist_pct), 'Anteil Top-10-Künstler', 'an allen Songs'],
@@ -232,7 +236,7 @@
           { every: Math.ceil(all.length / 16), tipFn: d => `<b>${d.label}</b>${fmt(d.value)} Songs` });
       }
 
-      columns(card('Songlängen', `Verteilung in 30-Sekunden-Schritten · Median ${dur(S.median_duration_s)}`),
+      columns(card('Songlängen', `Verteilung in 30-Sekunden-Schritten · Median ${dur(S.median_duration_s)}${S.sets ? ` · ohne ${fmt(S.sets)} DJ-Sets über 20 min` : ''}`),
         S.duration_hist.map(([s, v]) => ({ label: s >= 600 ? '10+' : dur(s), value: v })),
         { every: 2, tipFn: d => `<b>${d.label}${d.label === '10+' ? ' min' : ''}</b>${fmt(d.value)} Songs` });
       hbar(card('Herkunft der Künstler', 'Songs nach Land des Hauptkünstlers (MusicBrainz)'),

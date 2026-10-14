@@ -66,6 +66,37 @@ def parse_count(text) -> int | None:
     return int(value * {"": 1, "K": 1e3, "M": 1e6, "B": 1e9}[suffix])
 
 
+_TITLE_SEP = re.compile(r"\s+[-–—]\s+")
+_ARTIST_SPLIT = re.compile(r"\s*,\s*|\s+(?:feat\.?|ft\.?|featuring)\s+", re.I)
+
+
+def prepare_songs(songs: list[dict]) -> tuple[list[dict], dict]:
+    """Bereinigt die Rohliste fuer die Auswertung.
+
+    - Doppelte videoIds entfernen (die neueste Position bleibt).
+    - Uploads ('Kuenstler - Titel' im Titel): Kuenstler aus dem Titel statt Upload-Kanal.
+      Der Kanal bleibt als 'uploader' erhalten. Bei '&' wird nicht getrennt (Above & Beyond).
+    """
+    seen, out = set(), []
+    info = {"duplicates_removed": 0, "uploads_parsed": 0, "uploads_unparsed": 0}
+    for s in songs:
+        if s["videoId"] in seen:
+            info["duplicates_removed"] += 1
+            continue
+        seen.add(s["videoId"])
+        if s.get("type") == "Upload":
+            parts = _TITLE_SEP.split(s.get("title") or "", maxsplit=1)
+            names = [n.strip() for n in _ARTIST_SPLIT.split(parts[0]) if n.strip()] if len(parts) == 2 else []
+            if names and parts[1].strip():
+                s = {**s, "uploader": s["artists"][0]["name"] if s["artists"] else None,
+                     "artists": [{"name": n, "id": None} for n in names], "title": parts[1].strip()}
+                info["uploads_parsed"] += 1
+            else:
+                info["uploads_unparsed"] += 1
+        out.append(s)
+    return out, info
+
+
 class Progress:
     """Einfache Fortschrittsanzeige mit Restzeit."""
 

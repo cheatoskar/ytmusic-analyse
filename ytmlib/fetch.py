@@ -76,6 +76,7 @@ def run(auth_file: str = "browser.json") -> None:
         {
             "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "count": len(songs),
+            "declared": playlist.get("trackCount"),
             "songs": songs,
         },
     )

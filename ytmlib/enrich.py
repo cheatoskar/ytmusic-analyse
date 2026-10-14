@@ -13,7 +13,7 @@ import os
 import sys
 import time
 
-from .common import DATA, ROOT, Progress, cache_dir, load_env, load_json, parse_count, save_json
+from .common import DATA, ROOT, Progress, cache_dir, load_env, load_json, parse_count, prepare_songs, save_json
 
 MB_URL = "https://musicbrainz.org/ws/2/artist/"
 LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
@@ -24,7 +24,7 @@ def _songs() -> list[dict]:
     liked = load_json(DATA / "liked_songs.json")
     if not liked:
         sys.exit("FEHLT: data/liked_songs.json. Zuerst 'python ytm.py fetch' ausfuehren.")
-    return liked["songs"]
+    return prepare_songs(liked["songs"])[0]
 
 
 def _yt():
