@@ -147,8 +147,9 @@
     },
   };
 
-  let lang = 'en';
-  try { lang = localStorage.getItem('ytm-lang') || ''; } catch (e) { /* ohne Speicher */ }
+  // Reihenfolge: ?lang=de|en in der URL, gespeicherte Wahl, Browsersprache
+  let lang = new URLSearchParams(location.search).get('lang') || '';
+  if (!I18N[lang]) { try { lang = localStorage.getItem('ytm-lang') || ''; } catch (e) { /* ohne Speicher */ } }
   if (!I18N[lang]) lang = (navigator.language || 'en').toLowerCase().startsWith('de') ? 'de' : 'en';
   const dict = I18N[lang];
 

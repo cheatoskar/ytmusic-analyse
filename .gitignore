@@ -16,3 +16,6 @@ out_demo/
 .venv/
 __pycache__/
 *.tmp
+
+# Lokale Werkzeug-Konfiguration
+.claude/

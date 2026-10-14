@@ -733,7 +733,13 @@
     return { refresh: () => {} };
   }
 
-  let start = 'overview';
-  try { start = localStorage.getItem('ytm-tab') || 'overview'; } catch (e) { /* */ }
+  // Direktlink per #network, #bubbles, #table – sonst die zuletzt offene Ansicht
+  let start = location.hash.slice(1);
+  if (!start) { try { start = localStorage.getItem('ytm-tab') || 'overview'; } catch (e) { /* */ } }
   showTab(['overview', 'network', 'bubbles', 'table'].includes(start) ? start : 'overview');
+  // Der Anker (#overview) wuerde sonst zur Section springen und die Kennzahlen unter dem Kopf verstecken
+  if (location.hash) {
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+    addEventListener('load', () => setTimeout(() => window.scrollTo(0, 0), 0), { once: true });
+  }
 })();

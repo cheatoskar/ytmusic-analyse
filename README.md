@@ -1,142 +1,193 @@
-# YT Music Liked Songs – Export & Auswertung
+# YT Music Liked Songs – Export & Analysis
 
-Exportiert deine „Mag ich“-Songs aus YouTube Music als JSON/CSV, reichert sie mit Jahr, Genre,
-Herkunft und Künstler-Beziehungen an und erzeugt eine interaktive Seite mit:
+**English** · [Deutsch](README.de.md)
 
-- **Übersicht**: exakte Kennzahlen und Diagramme (Genres, Top-Künstler, Jahre, Songlängen, Länder,
-  Geschmacksentwicklung, Mainstream-Index, Kollaborationen …)
-- **Netzwerk-Map**: Künstler als Bubbles (Größe = Anzahl Songs), verbunden über Features,
-  „verwandte Künstler“ von YT Music und ähnliche Genre-Tags; automatisch gefundene Musik-Welten (Cluster)
-- **Bubble-Map**: Genre → Künstler → Song als zoombare, verschachtelte Bubbles
-- **Alle Songs**: durchsuch- und sortierbare Tabelle
-- Mit Google Takeout zusätzlich: Wiedergaben, Hör-Heatmap, meistgespielt, „oft gehört, nie geliked“
+Export your YouTube Music liked songs to JSON/CSV, enrich them with release years, styles, artist
+origin and artist relationships, and explore them in an interactive page:
 
-Alles läuft lokal. Es werden keine Daten hochgeladen; abgefragt werden nur YouTube Music,
-MusicBrainz und (optional) Last.fm.
+- **Overview** – exact numbers and charts: styles, top artists, release years, song lengths,
+  countries, how your taste changed, what is in your playlists, mainstream vs. underground,
+  collaborations, remix/sped-up share …
+- **Network map** – every artist is a bubble (size = number of liked songs), linked by features,
+  YT Music's "related artists" and similar style tags; music worlds (clusters) are found automatically
+- **Bubble map** – style → artist → song as zoomable nested bubbles (or by playlist / music world)
+- **All songs** – searchable, sortable table
+- With **Google Takeout** on top: plays per month, listening heatmap, most played,
+  "played a lot but never liked"
 
-Ohne eigene Daten ausprobieren: `.venv\Scripts\python ytm.py demo`
+The page is available in **English and German** (switch in the header).
+
+![Overview](docs/overview.png)
+![Network map](docs/network.png)
+![Bubble map](docs/bubbles.png)
+
+*Screenshots use the built-in demo data.*
+
+**Privacy:** everything runs locally. Your data is never uploaded anywhere. The scripts only talk to
+YouTube Music (your account), MusicBrainz and – optionally – Last.fm (artist names only).
+
+Try it without an account: `python ytm.py demo`
 
 ---
 
-## Schritt für Schritt
+## Requirements
 
-Alle Befehle in PowerShell im Projektordner (`Desktop\ytmusic-analyse`).
+- Python **3.10+**
+- A YouTube Music account with liked songs
+- Optional: a free [Last.fm API key](https://www.last.fm/api/account/create) (much better styles)
+- Optional: a [Google Takeout](https://takeout.google.com) export (plays and listening times)
 
-### 1. Google Takeout jetzt schon anfordern (dauert Stunden bis 1 Tag)
+## Installation
 
-1. <https://takeout.google.com> öffnen → **Auswahl aufheben**
-2. Nur **YouTube und YouTube Music** anhaken
-3. **Mehrere Formate** → bei **Verlauf** auf **JSON** stellen (Standard ist HTML, damit geht es nicht)
-4. **Alle YouTube-Daten enthalten** → nur **Verlauf** und **Playlists** anhaken (Videos weglassen, die sind riesig)
-5. Weiter → einmalig exportieren → .zip → Export erstellen. Die Mail mit dem Download-Link kommt später.
-
-### 2. Umgebung (einmalig – schon erledigt, falls `.venv` existiert)
-
-```powershell
+```bash
+git clone https://github.com/<you>/ytmusic-analyse.git
+cd ytmusic-analyse
 python -m venv .venv
+```
+
+Windows:
+```bash
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-### 3. Bei YouTube Music anmelden (browser.json erzeugen)
-
-Das machst du selbst; die Datei enthält dein Login-Cookie und bleibt nur auf deinem Rechner
-(steht in `.gitignore`).
-
-1. In **Firefox** oder **Chrome** <https://music.youtube.com> öffnen und eingeloggt sein
-2. **F12** → Reiter **Netzwerk / Network** → im Filter `browse` eingeben
-3. In YT Music auf **Bibliothek** klicken, damit eine Anfrage `browse?...` (POST, Status 200) erscheint
-4. Header kopieren:
-   - **Firefox**: Rechtsklick auf die Anfrage → *Kopieren* → *Anfrage-Header kopieren*
-   - **Chrome**: Anfrage anklicken → *Headers* → bei *Request Headers* auf **Raw** schalten →
-     alles ab `accept:` bis zum Ende markieren und kopieren
-5. Im Projektordner ausführen:
-   ```powershell
-   .venv\Scripts\ytmusicapi browser
-   ```
-   Header einfügen, **Enter**, dann **Strg+Z** und nochmal **Enter**. Danach liegt `browser.json` im Ordner.
-
-**Einfacher:** Liegt schon eine `browser.json` mit `HIER_DEINEN_COOKIE_EINFUEGEN` im Ordner, nur den
-Platzhalter durch den Wert des `cookie`-Headers ersetzen (in den DevTools: Rechtsklick auf den
-`cookie`-Header → *Wert kopieren*). Eine Zeile, zwischen den Anführungszeichen.
-
-Wichtig: Dich in diesem Browser **nicht bei YouTube abmelden**, sonst wird das Cookie ungültig.
-(ytmusicapi markiert diese Methode als „deprecated“, sie funktioniert aber. Wenn sie irgendwann bricht:
-Schritt 3 wiederholen.)
-
-### 4. Liked Songs abrufen
-
-```powershell
-.venv\Scripts\python ytm.py fetch
+macOS/Linux:
+```bash
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-Ergebnis: `data/liked_songs.json` (bereinigt) und `data/liked_raw.json` (Rohdaten).
+In the commands below, `python` means `.venv\Scripts\python` (Windows) or `.venv/bin/python`.
 
-### 5. Optional, aber für Genres stark empfohlen: Last.fm-API-Key
+## Step by step
 
-MusicBrainz allein liefert für viele Künstler (gerade Deutschrap, neuere Acts) keine Genres.
+### 1. Request Google Takeout now (optional, takes hours to a day)
 
-1. Last.fm-Konto anlegen → <https://www.last.fm/api/account/create> → App anlegen (Name egal)
-2. Datei `.env` im Projektordner anlegen (Vorlage: `.env.example`):
-   ```
-   LASTFM_API_KEY=dein_key
-   ```
+1. Open <https://takeout.google.com> → **Deselect all**
+2. Tick only **YouTube and YouTube Music**
+3. **Multiple formats** → set **History** to **JSON** (the default HTML does not work)
+4. **All YouTube data included** → keep only **history**, **playlists** and **music (library and uploads)**
+   (leave out *videos*, they can be huge)
+5. Export once, as .zip
 
-### 6. Anreichern
+### 2. Log in to YouTube Music (create `browser.json`)
 
-```powershell
-.venv\Scripts\python ytm.py enrich
+The file holds your login cookie. It stays on your machine and is listed in `.gitignore` –
+**never share or commit it.**
+
+1. Copy the template: `browser.example.json` → `browser.json`
+2. Open <https://music.youtube.com> in Chrome/Edge/Firefox while logged in
+3. Press **F12** → **Network** tab → reload the page
+4. Click a request such as `browse?…`, `account_menu?…` or `guide?…` (method POST)
+5. In **Request headers**, right-click `cookie` → **Copy value**
+6. In `browser.json`, replace `PASTE_YOUR_COOKIE_HERE` with that value – one line, between the quotes
+
+Alternative: run `ytmusicapi browser` (installed with the requirements) and paste all request headers.
+
+Do not log out of YouTube in that browser, otherwise the cookie becomes invalid.
+
+### 3. Fetch your liked songs
+
+```bash
+python ytm.py fetch
 ```
 
-Dauer: Alben und Künstler ca. 0,3 s pro Stück, Genres/Herkunft ca. 1,4 s pro Künstler
-(MusicBrainz erlaubt nur 1 Anfrage pro Sekunde). Bei 1 000 Künstlern also ca. 25 min.
-Abbrechen mit Strg+C ist unproblematisch – der nächste Aufruf macht dort weiter.
+### 4. Last.fm API key (optional, recommended)
 
-### 7. Takeout einlesen (sobald die ZIP da ist)
+Without it, styles come from MusicBrainz only and many artists stay "Unknown".
+Create a key at <https://www.last.fm/api/account/create> (name and description are free text,
+callback and homepage can stay empty; the key is shown immediately and is free for personal use).
+Copy `.env.example` to `.env` and fill in:
 
-```powershell
-.venv\Scripts\python ytm.py takeout "C:\Users\<du>\Downloads\takeout-XXXX.zip"
+```
+LASTFM_API_KEY=your_key
 ```
 
-Die ZIP wird direkt gelesen, entpacken ist nicht nötig. Danach zurück zu Schritt 8.
+### 5. Enrich
 
-### 8. Auswertung bauen und öffnen
-
-```powershell
-.venv\Scripts\python ytm.py build
-.venv\Scripts\python ytm.py open
+```bash
+python ytm.py enrich
 ```
 
-Ergebnisse in `out/`:
+Runtime grows with the number of artists and albums: roughly 1 s per album and artist (YT Music),
+0.25 s per artist (Last.fm) and 1.1 s per artist (MusicBrainz allows one request per second).
+For ~3,000 artists expect 1–2 hours. Interrupting with Ctrl+C is safe – the next run continues
+where it stopped. Tip: run the services in parallel in separate terminals:
 
-| Datei | Inhalt |
+```bash
+python ytm.py enrich --no-lastfm --no-mb
+```
+```bash
+python ytm.py enrich --no-albums --no-artists --no-mb
+```
+```bash
+python ytm.py enrich --no-albums --no-artists --no-lastfm
+```
+
+### 6. Import Takeout (when the ZIP has arrived)
+
+```bash
+python ytm.py takeout "path/to/takeout-XXXX.zip"
+```
+
+The ZIP is read directly – no need to unpack it.
+
+### 7. Build and open
+
+```bash
+python ytm.py build
+python ytm.py open
+```
+
+| File in `out/` | Content |
 |---|---|
-| `index.html` | Interaktive Seite (braucht Internet für D3 von cdnjs) |
-| `report.md` | Alle Kennzahlen als Text |
-| `songs.csv` | Alle Songs mit Metadaten, öffnet direkt in Excel |
-| `kuenstler_netzwerk.gexf` | Künstler-Graph für [Gephi](https://gephi.org) |
+| `index.html` | the interactive page (needs internet once for D3 from cdnjs) |
+| `report.md` | all key numbers as text |
+| `songs.csv` | all songs with metadata (opens in Excel) |
+| `kuenstler_netzwerk.gexf` | artist graph for [Gephi](https://gephi.org) |
 
----
+Deep links: `out/index.html#network`, `#bubbles`, `#table`, and `?lang=en` / `?lang=de`.
 
-## Grenzen (ehrlich)
+## Language
 
-- **ytmusicapi ist inoffiziell.** Wenn YouTube intern etwas ändert, kann der Abruf brechen
-  (`pip install -U ytmusicapi` hilft meistens).
-- **Like-Datum** gibt es nur über Takeout und nur, wenn deine Liked-Playlist dort mit Zeitstempeln
-  enthalten ist. Ohne Takeout zeigt „Geschmacksentwicklung“ die Like-*Reihenfolge* in 10 Abschnitten.
-- **Genres** kommen vom Hauptkünstler, nicht vom einzelnen Song.
-- **Wiedergaben**: YT Music spielt manchmal die Video- statt der Audio-Version (andere ID).
-  „Nie gespielt“ ist daher eine Obergrenze.
-- **BPM/Energie/Tanzbarkeit** gibt es nicht: Spotify hat diese Schnittstelle für neue Apps abgeschaltet.
+- **Page:** button in the header; default is the browser language.
+- **Command line and `report.md`:** system language, override with `YTM_LANG=en` or `YTM_LANG=de`.
+- **Time zone** for the listening heatmap: system time zone, override with e.g. `YTM_TZ=Europe/Berlin`.
 
-## Aufbau
+## Limitations
+
+- **ytmusicapi is unofficial.** If YouTube changes its internals, fetching can break
+  (`pip install -U ytmusicapi` usually helps). Cookie-based login is marked as deprecated in ytmusicapi
+  but works as of version 1.12.
+- YouTube Music sometimes reports more liked songs than it returns (deleted/blocked tracks) and
+  lists some songs twice; duplicates are removed and the gap is shown.
+- **Like dates** are only available if your Takeout contains the liked list with timestamps (often it
+  does not). Otherwise "how your taste changed" uses the like order.
+- **Plays** only cover the period your YouTube history keeps (auto-delete settings).
+  YT Music sometimes plays a different version (video instead of audio) with its own ID, so
+  "never played" is an upper bound.
+- **Styles** belong to the main artist, not to the individual song.
+- For **uploads** (user-uploaded videos) the artist is read from "Artist - Title"; otherwise the
+  channel name is used.
+- BPM/energy/danceability are not available (Spotify closed that API for new apps).
+
+## Project layout
 
 ```
-ytm.py            Kommandozeile (fetch, enrich, takeout, build, open, demo)
-ytmlib/fetch.py   Abruf über ytmusicapi
-ytmlib/enrich.py  Alben, Künstler, MusicBrainz, Last.fm (mit Cache in data/cache/)
-ytmlib/takeout.py Google-Takeout-Parser
-ytmlib/build.py   Kennzahlen, Netzwerk + Louvain-Cluster, Ausgabe
-ytmlib/genres.py  Tags → 8 Haupt-Genres
-web/              Oberfläche (D3), wird nach out/ kopiert
-tests/            Parser-Test
+ytm.py             command line (fetch, enrich, takeout, build, open, demo)
+ytmlib/fetch.py    fetching via ytmusicapi
+ytmlib/enrich.py   albums, artists, Last.fm, MusicBrainz (cached in data/cache/)
+ytmlib/takeout.py  Google Takeout parser
+ytmlib/build.py    statistics, network + Louvain clusters, output
+ytmlib/genres.py   tags → styles
+ytmlib/demo.py     made-up demo data
+web/               page (D3, DE/EN), copied to out/
+tests/             parser test
 ```
+
+## Disclaimer
+
+Not affiliated with Google, YouTube, Last.fm or MusicBrainz. For personal use with your own account.
+Respect the terms of the services you query.
+
+## License
+
+[MIT](LICENSE)

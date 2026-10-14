@@ -29,7 +29,9 @@ def main() -> None:
     e = sub.add_parser("enrich", help=tr("Metadaten nachladen", "add metadata"))
     e.add_argument("--no-albums", action="store_true", help=tr("Alben überspringen", "skip albums"))
     e.add_argument("--no-artists", action="store_true", help=tr("Künstler überspringen", "skip artists"))
-    e.add_argument("--no-tags", action="store_true", help=tr("Tags/Herkunft überspringen", "skip tags/origin"))
+    e.add_argument("--no-tags", action="store_true", help=tr("Last.fm und MusicBrainz überspringen", "skip Last.fm and MusicBrainz"))
+    e.add_argument("--no-lastfm", action="store_true", help=tr("Last.fm überspringen", "skip Last.fm"))
+    e.add_argument("--no-mb", action="store_true", help=tr("MusicBrainz überspringen", "skip MusicBrainz"))
     t = sub.add_parser("takeout", help=tr("Google Takeout einlesen", "import Google Takeout"))
     t.add_argument("source", help=tr("Pfad zur Takeout-ZIP oder zum entpackten Ordner",
                                      "path to the Takeout ZIP or extracted folder"))
@@ -43,7 +45,8 @@ def main() -> None:
         run()
     elif a.cmd == "enrich":
         from ytmlib.enrich import run
-        run(albums=not a.no_albums, artists=not a.no_artists, tags=not a.no_tags)
+        run(albums=not a.no_albums, artists=not a.no_artists,
+            lastfm=not (a.no_tags or a.no_lastfm), musicbrainz=not (a.no_tags or a.no_mb))
     elif a.cmd == "takeout":
         from ytmlib.takeout import run
         run(a.source)

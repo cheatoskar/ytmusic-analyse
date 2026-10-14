@@ -2,8 +2,8 @@
 
 - Alben (ytmusicapi): Erscheinungsjahr, Typ (Album/Single/EP)
 - Kuenstler (ytmusicapi): Abonnenten, verwandte Kuenstler (fuer die Map)
-- Tags/Genres: Last.fm (wenn LASTFM_API_KEY in .env), sonst nur MusicBrainz
-- MusicBrainz: Herkunftsland, Typ (Person/Gruppe), Startjahr, Tags
+- Last.fm (wenn LASTFM_API_KEY in .env): Stil-Tags, parallel
+- MusicBrainz: Herkunftsland, Typ (Person/Gruppe), Startjahr, Tags (1 Anfrage/s)
 
 Alles wird in data/cache/ gespeichert. Ein Abbruch ist unkritisch: der naechste Lauf macht weiter.
 """
@@ -134,53 +134,112 @@ def _lastfm(session, name: str, key: str) -> list[str]:
     return [t["name"].lower() for t in tags if int(t.get("count", 0)) >= 10][:10]
 
 
-def enrich_tags(songs: list[dict]) -> None:
+def _migrate_legacy_tags() -> None:
+    """Alter gemeinsamer Cache tags.json -> getrennte Caches musicbrainz.json und lastfm.json."""
+    cdir = cache_dir(DATA)
+    legacy = load_json(cdir / "tags.json")
+    if not legacy:
+        return
+    mb = load_json(cdir / "musicbrainz.json", {})
+    lf = load_json(cdir / "lastfm.json", {})
+    for k, entry in legacy.items():
+        if "mb" in entry and k not in mb:
+            mb[k] = entry["mb"]
+        if "lastfm" in entry and k not in lf:
+            lf[k] = entry["lastfm"]
+    save_json(cdir / "musicbrainz.json", mb)
+    save_json(cdir / "lastfm.json", lf)
+    os.replace(cdir / "tags.json", cdir / "tags.legacy.json")
+
+
+def _names(songs: list[dict]) -> list[str]:
+    return sorted({a["name"] for s in songs for a in s["artists"]})
+
+
+def enrich_lastfm(songs: list[dict], workers: int = 4) -> None:
+    """Stil-Tags von Last.fm. Parallel, aber hoechstens ~4 Anfragen/s (Last.fm erlaubt 5/s)."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
     import requests
 
     load_env()
     key = os.environ.get("LASTFM_API_KEY", "").strip()
-    path = cache_dir(DATA) / "tags.json"
+    if not key:
+        print(tr("Last.fm: kein LASTFM_API_KEY in .env – übersprungen (Stile dann nur aus MusicBrainz).",
+                 "Last.fm: no LASTFM_API_KEY in .env – skipped (styles from MusicBrainz only)."))
+        return
+    path = cache_dir(DATA) / "lastfm.json"
     cache = load_json(path, {})
-    names = sorted({a["name"] for s in songs for a in s["artists"]})
-    # Eintraege ohne Last.fm-Tags nachholen, sobald ein Key vorhanden ist
-    todo = [n for n in names if n.casefold() not in cache or (key and "lastfm" not in cache[n.casefold()])]
-    est = len(todo) * (1.1 + (0.25 if key else 0)) / 60
-    print(tr(f"Tags/Herkunft: {len(cache)} im Cache, {len(todo)} offen (~{est:.0f} min)",
-             f"Tags/origin: {len(cache)} cached, {len(todo)} to do (~{est:.0f} min)")
-          + ("" if key else tr("  [ohne Last.fm-Key: nur MusicBrainz, Stile lückenhafter]",
-                               "  [no Last.fm key: MusicBrainz only, styles less complete]")))
+    todo = [n for n in _names(songs) if n.casefold() not in cache]
+    print(tr(f"Last.fm: {len(cache)} im Cache, {len(todo)} offen (~{len(todo) / 4 / 60:.0f} min)",
+             f"Last.fm: {len(cache)} cached, {len(todo)} to do (~{len(todo) / 4 / 60:.0f} min)"))
+    if not todo:
+        return
+    lock = threading.Lock()
+    prog = Progress(len(todo), "Last.fm", every=100)
+    local = threading.local()
+
+    def fetch(name: str) -> None:
+        if not hasattr(local, "s"):
+            local.s = requests.Session()
+            local.s.headers["User-Agent"] = USER_AGENT
+        try:
+            tags = _lastfm(local.s, name, key)
+        except Exception as e:  # noqa: BLE001
+            tags = None
+            err = str(e)[:200]
+        time.sleep(1.0)  # pro Thread 1/s -> insgesamt ~workers/s
+        with lock:
+            if tags is not None:
+                cache[name.casefold()] = tags
+            elif "401" in err or "403" in err:
+                print(tr(f"Last.fm lehnt den Key ab: {err}", f"Last.fm rejected the key: {err}"))
+            prog.tick()
+            if prog.done % 100 == 0:
+                save_json(path, cache)
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        list(ex.map(fetch, todo))
+    save_json(path, cache)
+
+
+def enrich_musicbrainz(songs: list[dict]) -> None:
+    """Herkunftsland, Typ, Startjahr und Tags von MusicBrainz (streng 1 Anfrage/s)."""
+    import requests
+
+    path = cache_dir(DATA) / "musicbrainz.json"
+    cache = load_json(path, {})
+    todo = [n for n in _names(songs) if n.casefold() not in cache]
+    print(tr(f"MusicBrainz: {len(cache)} im Cache, {len(todo)} offen (~{len(todo) * 1.5 / 60:.0f} min)",
+             f"MusicBrainz: {len(cache)} cached, {len(todo)} to do (~{len(todo) * 1.5 / 60:.0f} min)"))
     if not todo:
         return
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
-    prog = Progress(len(todo), "Tags", every=20)
+    prog = Progress(len(todo), "MusicBrainz", every=50)
     for i, name in enumerate(todo):
-        entry = cache.get(name.casefold(), {"name": name})
-        if "mb" not in entry:
-            try:
-                entry["mb"] = _musicbrainz(session, name)
-            except Exception as e:  # noqa: BLE001
-                entry["mb"] = {"found": False, "error": str(e)[:200]}
-            time.sleep(1.1)  # MusicBrainz erlaubt 1 Anfrage pro Sekunde
-        if key and "lastfm" not in entry:
-            try:
-                entry["lastfm"] = _lastfm(session, name, key)
-            except Exception as e:  # noqa: BLE001
-                entry["lastfm_error"] = str(e)[:200]
-            time.sleep(0.25)
-        cache[name.casefold()] = entry
+        started = time.time()
+        try:
+            cache[name.casefold()] = _musicbrainz(session, name)
+        except Exception as e:  # noqa: BLE001
+            cache[name.casefold()] = {"found": False, "error": str(e)[:200]}
         prog.tick()
-        if i % 20 == 0:
+        if i % 50 == 0:
             save_json(path, cache)
+        time.sleep(max(0.0, 1.1 - (time.time() - started)))  # 1 Anfrage pro Sekunde, Antwortzeit eingerechnet
     save_json(path, cache)
 
 
-def run(albums: bool = True, artists: bool = True, tags: bool = True) -> None:
+def run(albums: bool = True, artists: bool = True, lastfm: bool = True, musicbrainz: bool = True) -> None:
     songs = _songs()
+    _migrate_legacy_tags()
     if albums:
         enrich_albums(songs)
     if artists:
         enrich_artists(songs)
-    if tags:
-        enrich_tags(songs)
+    if lastfm:
+        enrich_lastfm(songs)
+    if musicbrainz:
+        enrich_musicbrainz(songs)
     print(tr("Anreicherung fertig. Weiter mit: python ytm.py build", "Enrichment done. Next: python ytm.py build"))

@@ -76,9 +76,10 @@ def _liked_timestamps(playlists: dict, liked_ids: set[str]) -> tuple[dict[str, s
 
 
 def _artist_tags(name: str, tag_cache: dict) -> tuple[list[str], dict]:
-    entry = tag_cache.get(name.casefold()) or {}
-    mb = entry.get("mb") or {}
-    tags = clean_tags(entry.get("lastfm") or []) or clean_tags(mb.get("tags") or [])
+    """Last.fm-Tags bevorzugt (genauer), sonst MusicBrainz. tag_cache = {"lastfm": {...}, "mb": {...}}."""
+    k = name.casefold()
+    mb = tag_cache["mb"].get(k) or {}
+    tags = clean_tags(tag_cache["lastfm"].get(k) or []) or clean_tags(mb.get("tags") or [])
     return tags, mb
 
 
@@ -93,7 +94,11 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
     cdir = cache_dir(data_dir)
     albums = load_json(cdir / "albums.json", {})
     yt_artists = load_json(cdir / "artists.json", {})
-    tag_cache = load_json(cdir / "tags.json", {})
+    legacy = load_json(cdir / "tags.json", {})  # alter gemeinsamer Cache, falls noch nicht migriert
+    tag_cache = {
+        "lastfm": {**{k: v["lastfm"] for k, v in legacy.items() if "lastfm" in v}, **load_json(cdir / "lastfm.json", {})},
+        "mb": {**{k: v["mb"] for k, v in legacy.items() if "mb" in v}, **load_json(cdir / "musicbrainz.json", {})},
+    }
     plays = load_json(data_dir / "plays.json", [])
     playlists = load_json(data_dir / "takeout_playlists.json", {})
     tz = _tz()

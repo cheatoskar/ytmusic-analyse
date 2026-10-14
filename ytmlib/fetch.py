@@ -53,7 +53,7 @@ def run(auth_file: str = "browser.json") -> None:
     except ValueError as e:
         sys.exit(tr(f"{auth.name} ist kein gültiges JSON mehr ({e}). Steht der Cookie in einer Zeile zwischen den Anführungszeichen?",
                     f"{auth.name} is no longer valid JSON ({e}). Is the cookie on one line between the quotes?"))
-    if "HIER_DEINEN_COOKIE" in cookie:
+    if "HIER_DEINEN_COOKIE" in cookie or "PASTE_YOUR_COOKIE" in cookie:
         sys.exit(tr(f"In {auth.name} steht noch der Platzhalter. Cookie-Wert einfügen (README, Schritt 3).",
                     f"{auth.name} still contains the placeholder. Paste your cookie value (README, step 3)."))
     if "__Secure-3PAPISID=" not in cookie:
