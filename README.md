@@ -5,26 +5,36 @@
 Export your YouTube Music liked songs to JSON/CSV, enrich them with release years, styles, artist
 origin and artist relationships, and explore them in an interactive page:
 
-- **Overview** – exact numbers and charts: styles, top artists, release years, song lengths,
-  countries, how your taste changed, what is in your playlists, mainstream vs. underground,
-  collaborations, remix/sped-up share …
-- **Network map** – every artist is a bubble (size = number of liked songs), linked by features,
-  YT Music's "related artists" and similar style tags; music worlds (clusters) are found automatically
-- **Bubble map** – style → artist → song as zoomable nested bubbles (or by playlist / music world)
-- **All songs** – searchable, sortable table
-- With **Google Takeout** on top: plays per month, listening heatmap, most played,
-  "played a lot but never liked"
+- **Home** – your music DNA: style mix, key numbers and automatically detected highlights
+  (electronic share, diversity, explorer or fan, underground share, listening time, all-time favourite …)
+- **Taste** – styles, top artists, music worlds (clusters), style mix of your playlists, tags,
+  mainstream vs. underground, origin, collaborations, feature kings
+- **Time travel** – release years, how your taste changed, style × decade, how fresh you listen,
+  new artists over time, song lengths
+- **Listening** (with Google Takeout) – listening calendar, weekly trend, weekday × hour with details per slot,
+  style by time of day, sessions, on repeat, artist of the month, forgotten favourites, "played a lot, never liked"
+- **Discover** – recommendations from your own network (related artists you don't have yet),
+  bridge artists between your worlds, second chance, hidden gems, random find
+- **Network map** and **bubble map** – artist network with automatically found music worlds and
+  zoomable style → artist → song bubbles
+- **Artists** and **All songs** – searchable, sortable tables, CSV export of the current selection
 
-The page is available in **English and German** (switch in the header).
+Everything is linked: one **global filter** (style, world, playlist, years, artist, country) applies to every page,
+every bar and name is clickable, every artist has a **profile** (songs, like timeline, plays, connections,
+similar artists) and **Ctrl+K** searches everything. The page is available in **English and German**.
 
-![Overview](docs/overview.png)
+![Home](docs/overview.png)
+![Listening](docs/listening.png)
+![Discover](docs/discover.png)
+![Artist profile](docs/profile.png)
 ![Network map](docs/network.png)
 ![Bubble map](docs/bubbles.png)
 
 *Screenshots use the built-in demo data.*
 
 **Privacy:** everything runs locally. Your data is never uploaded anywhere. The scripts only talk to
-YouTube Music (your account), MusicBrainz and – optionally – Last.fm (artist names only).
+YouTube Music (your account), MusicBrainz and – optionally – Last.fm (artist names only). The page itself loads
+D3 from cdnjs and cover images from YouTube's image servers.
 
 Try it without an account: `python ytm.py demo`
 
@@ -144,7 +154,9 @@ python ytm.py open
 | `songs.csv` | all songs with metadata (opens in Excel) |
 | `kuenstler_netzwerk.gexf` | artist graph for [Gephi](https://gephi.org) |
 
-Deep links: `out/index.html#network`, `#bubbles`, `#table`, and `?lang=en` / `?lang=de`.
+Deep links: `out/index.html#home`, `#taste`, `#time`, `#listen`, `#discover`, `#network`, `#bubbles`, `#artists`,
+`#songs`, and `?lang=en` / `?lang=de`. Filters and open profiles are part of the address too
+(e.g. `#taste?g=Trance&y0=2010&y1=2019`), so you can bookmark them.
 
 ## Language
 
@@ -179,8 +191,10 @@ ytmlib/takeout.py  Google Takeout parser
 ytmlib/build.py    statistics, network + Louvain clusters, output
 ytmlib/genres.py   tags → styles
 ytmlib/demo.py     made-up demo data
-web/               page (D3, DE/EN), copied to out/
-tests/             parser test
+web/               page (D3, DE/EN), copied to out/:
+                   core.js (data, filter, address), charts.js (charts), pages.js (pages),
+                   maps.js (network, bubbles), app.js (navigation, profile, search), i18n.js (texts)
+tests/             parser and build test
 ```
 
 ## Disclaimer

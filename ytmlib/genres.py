@@ -39,6 +39,8 @@ STYLES: list[tuple[str, list[str]]] = [
     ("Electronic (other)", ["electronic", "elektronisch"]),
 ]
 STYLE_NAMES = [m for m, _ in STYLES]
+# Fuer die Kennzahl "elektronischer Anteil" auf der Startseite
+ELECTRONIC = STYLE_NAMES[:STYLE_NAMES.index("Chill & Downtempo") + 1] + ["Electronic (other)"]
 UNKNOWN = "Unknown"
 OTHER = "Other styles"
 

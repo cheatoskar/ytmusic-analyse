@@ -5,26 +5,36 @@
 Exportiert deine „Mag ich“-Songs aus YouTube Music als JSON/CSV, reichert sie mit Erscheinungsjahr,
 Stil, Herkunft und Künstler-Beziehungen an und zeigt alles auf einer interaktiven Seite:
 
-- **Übersicht** – exakte Kennzahlen und Diagramme: Stile, Top-Künstler, Erscheinungsjahre, Songlängen,
-  Herkunftsländer, Geschmacksentwicklung, Stil-Mix deiner Playlists, Mainstream oder Underground,
-  Kollaborationen, Remix-/Sped-up-Anteil …
-- **Netzwerk-Map** – jeder Künstler eine Bubble (Größe = Anzahl Liked Songs), verbunden über Features,
-  „verwandte Künstler“ von YT Music und ähnliche Stil-Tags; Musik-Welten (Cluster) werden automatisch erkannt
-- **Bubble-Map** – Stil → Künstler → Song als zoombare, verschachtelte Bubbles (oder nach Playlist/Musik-Welt)
-- **Alle Songs** – durchsuch- und sortierbare Tabelle
-- Mit **Google Takeout** zusätzlich: Wiedergaben pro Monat, Hör-Heatmap, meistgespielt,
-  „oft gehört, nie geliked“
+- **Start** – deine Musik-DNA: Stil-Mix, Kennzahlen und automatisch erkannte Auffälligkeiten
+  (Elektronik-Anteil, Vielfalt, Entdecker oder Fan, Underground-Anteil, Hörzeit, Dauerbrenner …)
+- **Geschmack** – Stile, Top-Künstler, Musik-Welten (Cluster), Stil-Mix deiner Playlists, Tags,
+  Mainstream oder Underground, Herkunft, Kollaborationen, Feature-Könige
+- **Zeitreise** – Erscheinungsjahre, Geschmacksentwicklung, Stil × Jahrzehnt, wie frisch du hörst,
+  neue Künstler über die Zeit, Songlängen
+- **Hören** (mit Google Takeout) – Hör-Kalender, Wochenverlauf, Wochentag × Uhrzeit mit Detail je Zeitfenster,
+  Stil nach Tageszeit, Sessions, On Repeat, Künstler des Monats, vergessene Lieblinge, „oft gehört, nie geliked“
+- **Entdecken** – Empfehlungen aus deinem eigenen Netzwerk (verwandte Künstler, die dir noch fehlen),
+  Brücken-Künstler zwischen deinen Welten, zweite Chance, Hidden Gems, Zufallsfund
+- **Netzwerk-Map** und **Bubble-Map** – Künstler-Netzwerk mit automatisch erkannten Musik-Welten und
+  zoombare Stil → Künstler → Song-Bubbles
+- **Künstler** und **Alle Songs** – durchsuch- und sortierbare Tabellen, CSV-Export der aktuellen Auswahl
 
-Die Seite gibt es auf **Deutsch und Englisch** (Umschalter oben rechts).
+Alles ist verknüpft: Ein **globaler Filter** (Stil, Welt, Playlist, Jahre, Künstler, Land) wirkt auf jede Seite,
+jeder Balken und jeder Name ist anklickbar, jeder Künstler hat ein **Profil** (Songs, Like-Verlauf, Wiedergaben,
+Verbindungen, ähnliche Künstler) und **Strg+K** durchsucht alles. Die Seite gibt es auf **Deutsch und Englisch**.
 
-![Übersicht](docs/overview.png)
+![Start](docs/overview.png)
+![Hören](docs/listening.png)
+![Entdecken](docs/discover.png)
+![Künstlerprofil](docs/profile.png)
 ![Netzwerk-Map](docs/network.png)
 ![Bubble-Map](docs/bubbles.png)
 
 *Die Screenshots zeigen die eingebauten Demo-Daten.*
 
 **Datenschutz:** Alles läuft lokal, deine Daten werden nirgends hochgeladen. Die Skripte sprechen nur mit
-YouTube Music (dein Konto), MusicBrainz und optional Last.fm (nur Künstlernamen).
+YouTube Music (dein Konto), MusicBrainz und optional Last.fm (nur Künstlernamen). Die Seite selbst lädt D3 von
+cdnjs und die Cover-Bilder von den Bildservern von YouTube.
 
 Ohne Konto ausprobieren: `python ytm.py demo`
 
@@ -144,7 +154,9 @@ python ytm.py open
 | `songs.csv` | alle Songs mit Metadaten (öffnet direkt in Excel) |
 | `kuenstler_netzwerk.gexf` | Künstler-Graph für [Gephi](https://gephi.org) |
 
-Direktlinks: `out/index.html#network`, `#bubbles`, `#table` sowie `?lang=de` / `?lang=en`.
+Direktlinks: `out/index.html#home`, `#taste`, `#time`, `#listen`, `#discover`, `#network`, `#bubbles`, `#artists`,
+`#songs` sowie `?lang=de` / `?lang=en`. Filter und geöffnete Profile stehen ebenfalls in der Adresse
+(z. B. `#taste?g=Trance&y0=2010&y1=2019`) und lassen sich so als Lesezeichen speichern.
 
 ## Sprache
 
@@ -179,8 +191,10 @@ ytmlib/takeout.py  Google-Takeout-Parser
 ytmlib/build.py    Kennzahlen, Netzwerk + Louvain-Cluster, Ausgabe
 ytmlib/genres.py   Tags → Stile
 ytmlib/demo.py     erfundene Demo-Daten
-web/               Oberfläche (D3, DE/EN), wird nach out/ kopiert
-tests/             Parser-Test
+web/               Oberfläche (D3, DE/EN), wird nach out/ kopiert:
+                   core.js (Daten, Filter, Adresse), charts.js (Diagramme), pages.js (Seiten),
+                   maps.js (Netzwerk, Bubbles), app.js (Navigation, Profil, Suche), i18n.js (Texte)
+tests/             Parser- und Build-Test
 ```
 
 ## Haftungsausschluss
