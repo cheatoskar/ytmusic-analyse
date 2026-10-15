@@ -66,7 +66,18 @@
   function measureTop() {
     document.documentElement.style.setProperty('--top-h', document.querySelector('.topbar').offsetHeight + 'px');
   }
-  addEventListener('resize', debounce(() => { measureTop(); const v = Y.views[nav.view]; v._init && v.refresh?.(sectionOf(nav.view)); }, 150));
+  // Diagramme rechnen mit der Kartenbreite: bei geaenderter Fensterbreite neu zeichnen
+  // (nur die Breite zaehlt, sonst loest auf dem Handy jedes Ein-/Ausblenden der Adressleiste ein Neuzeichnen aus)
+  let lastW = innerWidth;
+  addEventListener('resize', debounce(() => {
+    measureTop();
+    const v = Y.views[nav.view];
+    if (!v._init) return;
+    if (v.refresh) v.refresh(sectionOf(nav.view));
+    else if (innerWidth !== lastW) { const y = scrollY; v.render(sectionOf(nav.view)); scrollTo(0, y); }
+    lastW = innerWidth;
+    VIEWS.forEach(n => { if (n !== nav.view && !Y.views[n].refresh) dirty[n] = true; });
+  }, 150));
 
   // ---------- Filterleiste ----------
   const styleOpts = [...d3.rollup(SONGS, v => v.length, s => s.g)].sort((a, b) => b[1] - a[1]);

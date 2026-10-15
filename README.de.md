@@ -36,34 +36,57 @@ Verbindungen, ähnliche Künstler) und **Strg+K** durchsucht alles. Die Seite gi
 YouTube Music (dein Konto), MusicBrainz und optional Last.fm (nur Künstlernamen). Die Seite selbst lädt D3 von
 cdnjs und die Cover-Bilder von den Bildservern von YouTube.
 
-Ohne Konto ausprobieren: `python ytm.py demo`
+Ohne Konto ausprobieren: `python ytm.py demo` (siehe Schnellstart)
 
 ---
 
 ## Voraussetzungen
 
-- Python **3.10+**
+- Python **3.10+** ([python.org](https://www.python.org/downloads/); unter Windows beim Installieren „Add python.exe to PATH“ anhaken)
+- [Git](https://git-scm.com/downloads) (oder das Repo auf GitHub als ZIP herunterladen: **Code → Download ZIP**)
 - Ein YouTube-Music-Konto mit Liked Songs
 - Optional: ein kostenloser [Last.fm-API-Key](https://www.last.fm/api/account/create) (deutlich bessere Stile)
 - Optional: ein [Google-Takeout](https://takeout.google.com)-Export (Wiedergaben und Hörzeiten)
 
-## Installation
+## Schnellstart
 
-```bash
-git clone https://github.com/<du>/ytmusic-analyse.git
+**1. Einmalig einrichten**
+
+Windows (PowerShell):
+```powershell
+git clone https://github.com/cheatoskar/ytmusic-analyse.git
 cd ytmusic-analyse
 python -m venv .venv
-```
-
-Windows:
-```bash
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
 
 macOS/Linux:
 ```bash
+git clone https://github.com/cheatoskar/ytmusic-analyse.git
+cd ytmusic-analyse
+python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
+
+**2. Ohne Konto ausprobieren** – erzeugt erfundene Beispieldaten und öffnet die Seite im Browser:
+```powershell
+.venv\Scripts\python ytm.py demo
+```
+
+**3. Mit deinen eigenen Likes** – die Details zu jedem Schritt stehen unten unter [Schritt für Schritt](#schritt-für-schritt):
+```powershell
+copy browser.example.json browser.json   # dann deinen Cookie eintragen (Schritt 2)
+copy .env.example .env                   # optional: Last.fm-Key eintragen (Schritt 4)
+.venv\Scripts\python ytm.py fetch        # Liked Songs abrufen
+.venv\Scripts\python ytm.py enrich       # Jahre, Stile, Herkunft, verwandte Künstler (dauert, jederzeit unterbrechbar)
+.venv\Scripts\python ytm.py build        # Seite bauen
+.venv\Scripts\python ytm.py open         # im Browser öffnen
+```
+Unter macOS/Linux `cp` statt `copy` und `.venv/bin/python` statt `.venv\Scripts\python`.
+
+Die fertige Seite liegt danach in **`out/index.html`** – später einfach doppelklicken. Nicht `web/index.html` öffnen,
+das ist nur die Vorlage ohne Daten. Nach neuen Likes reichen `fetch`, `enrich` und `build`; schon geladene
+Künstler kommen aus dem Cache.
 
 In den Befehlen unten steht `python` für `.venv\Scripts\python` (Windows) bzw. `.venv/bin/python`.
 
