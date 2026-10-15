@@ -8,6 +8,7 @@
       theme_title: 'Hell/Dunkel umschalten', lang_switch: 'EN', lang_title: 'Switch to English',
       load_error: 'Daten oder D3 konnten nicht geladen werden. Internetverbindung prüfen (D3 kommt von cdnjs) und <code>python ytm.py build</code> ausführen.',
       meta: '{songs} Songs · {artists} Künstler<br>erstellt {date}',
+      no_data: 'Hier fehlen die Daten. Diese Datei im Ordner <code>web</code> ist nur die Vorlage. Öffne die fertige Seite <b>out/index.html</b> (oder <code>python ytm.py open</code>). Noch nichts gebaut? Zuerst <code>python ytm.py build</code>.',
       // Navigation
       nav_g_insights: 'Auswertung', nav_g_maps: 'Karten', nav_g_data: 'Bibliothek',
       nav_home: 'Start', nav_taste: 'Geschmack', nav_time: 'Zeitreise', nav_listen: 'Hören', nav_discover: 'Entdecken',
@@ -156,6 +157,7 @@
       theme_title: 'Toggle light/dark', lang_switch: 'DE', lang_title: 'Auf Deutsch umschalten',
       load_error: 'Data or D3 could not be loaded. Check your internet connection (D3 is loaded from cdnjs) and run <code>python ytm.py build</code>.',
       meta: '{songs} songs · {artists} artists<br>built {date}',
+      no_data: 'The data is missing. This file in the <code>web</code> folder is only the template. Open the finished page <b>out/index.html</b> (or <code>python ytm.py open</code>). Nothing built yet? Run <code>python ytm.py build</code> first.',
       nav_g_insights: 'Insights', nav_g_maps: 'Maps', nav_g_data: 'Library',
       nav_home: 'Home', nav_taste: 'Taste', nav_time: 'Time travel', nav_listen: 'Listening', nav_discover: 'Discover',
       nav_network: 'Network', nav_bubbles: 'Bubbles', nav_artists: 'Artists', nav_songs: 'All songs',

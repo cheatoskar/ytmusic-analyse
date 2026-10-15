@@ -3,7 +3,9 @@
   'use strict';
   const Y = window.Y;
   if (!Y || !Y.ok) {
-    document.getElementById('main').innerHTML = `<p style="padding:24px">${window.t ? t('load_error') : 'Data or D3 could not be loaded.'}</p>`;
+    // Ohne data.js wurde meist die Vorlage in web/ statt der fertigen Seite in out/ geoeffnet
+    const key = !window.DATA ? 'no_data' : 'load_error';
+    document.getElementById('main').innerHTML = `<p style="padding:24px;max-width:640px">${window.t ? t(key) : 'Data or D3 could not be loaded.'}</p>`;
     return;
   }
   const { A, SONGS, COMMS, PLS, PLAYS, PX, HAS_PLAYS, UNKNOWN, F, cur, VIEWS, nav } = Y;
