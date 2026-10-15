@@ -15,7 +15,7 @@ from itertools import combinations, permutations
 from pathlib import Path
 
 from .common import DATA, LANG, OUT, WEB, artist_from_title, cache_dir, load_json, prepare_songs, tr
-from .genres import GENERIC_TAGS, OTHER, UNKNOWN, clean_tags, macro_genre
+from .genres import ELECTRONIC, GENERIC_TAGS, OTHER, UNKNOWN, clean_tags, macro_genre
 
 LIKED_PLAYLIST_NAME = re.compile(r"lik|mag|gef[aä]ll|favorit", re.I)
 WATCH_LATER = re.compile(r"watch later|sp[aä]ter ansehen", re.I)
@@ -74,6 +74,24 @@ def _liked_timestamps(playlists: dict, liked_ids: set[str]) -> tuple[dict[str, s
         if ts and (vid not in out or ts < out[vid]):
             out[vid] = ts
     return out, best
+
+
+_YT3 = "https://yt3.googleusercontent.com/"
+_THUMB_SIZE = re.compile(r"=w\d+-h\d+(-[a-z0-9-]+)?$")
+
+
+def _thumb(url: str | None) -> str | None:
+    """Cover-URL kuerzen: der gemeinsame Praefix wird zu '~', die Groessenangabe setzt die Seite selbst."""
+    if not url:
+        return None
+    if url.startswith(_YT3):
+        return "~" + _THUMB_SIZE.sub("", url[len(_YT3):])
+    return url
+
+
+def _local_minutes(d: datetime) -> int:
+    """Ortszeit als Minuten seit 1970, ohne Zeitzone: die Seite liest sie mit getUTC*() und muss nichts umrechnen."""
+    return int((d.replace(tzinfo=None) - datetime(1970, 1, 1)).total_seconds() // 60)
 
 
 def _artist_tags(name: str, tag_cache: dict) -> tuple[list[str], dict]:
@@ -327,6 +345,8 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
     }
 
     # ---------- Wiedergaben (Takeout) ----------
+    play_list: list[list[int]] = []
+    play_extra: list[list[str]] = []
     if plays:
         liked_ids = {s["videoId"] for s in songs}
         local = [datetime.fromisoformat(p["t"]).astimezone(tz) for p in plays]
@@ -361,6 +381,17 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
                 s = song_by_id[v]
                 return [s["title"], ", ".join(a["name"] for a in s["artists"])]
             return list(meta.get(v, (v, "")))
+
+        # Einzelne Wiedergaben fuer die Seite (Filter, Kalender, Sessions): [Song-Index | -1-Extra-Index, Ortszeit-Minuten]
+        extra_idx: dict[str, int] = {}
+        for p, d in zip(plays, local):
+            ref = by_id.get(p["v"])
+            if ref is None:
+                if p["v"] not in extra_idx:
+                    extra_idx[p["v"]] = len(play_extra)
+                    play_extra.append([p["title"], play_artist(p) or ""])
+                ref = -1 - extra_idx[p["v"]]
+            play_list.append([ref, _local_minutes(d)])
 
         busiest = days.most_common(1)[0]
         stats["plays"] = {
@@ -449,29 +480,55 @@ def build(data_dir: Path = DATA, out_dir: Path = OUT, demo: bool = False) -> Pat
                           "genre": gc.most_common(1)[0][0],
                           "top": [artists[k]["name"] for k in top_members[:6]]})
 
+    # ---------- Empfehlungen: von YT Music als verwandt genannt, aber (noch) nicht in den Likes ----------
+    # Je mehr eigene Kuenstler einen Kandidaten nennen (gewichtet mit Wurzel ihrer Song-Anzahl), desto hoeher.
+    lib_names = {r["name"].casefold() for r in artists.values()}
+    votes: dict[str, dict] = {}
+    for k, r in artists.items():
+        for rel in (yt_artists.get(k) or {}).get("related") or []:
+            rid, rname = rel.get("id"), rel.get("name") or ""
+            if not rid or rid in artists or rname.casefold() in lib_names:
+                continue
+            v = votes.setdefault(rid, {"name": rname, "score": 0.0, "via": []})
+            v["score"] += math.sqrt(len(r["songs"]))
+            v["via"].append(k)
+    recs = sorted((v | {"id": rid} for rid, v in votes.items() if len(v["via"]) >= 2), key=lambda v: -v["score"])[:48]
+
     # ---------- Ausgabe ----------
     out_dir.mkdir(parents=True, exist_ok=True)
     keys = list(artists)
     kidx = {k: i for i, k in enumerate(keys)}
+    by_name = {}
+    for k in keys:
+        by_name.setdefault(artists[k]["name"].casefold(), kidx[k])
+
+    def rec_genre(via):
+        c = Counter(artists[k]["genre"] for k in via if artists[k]["genre"] != UNKNOWN)
+        return c.most_common(1)[0][0] if c else UNKNOWN
+
     payload = {
         "meta": {"generated": datetime.now().isoformat(timespec="minutes"), "fetched": liked.get("fetched_at"),
                  "demo": demo, "genres": color_styles, "unknown": UNKNOWN, "other": OTHER, "lang": LANG,
-                 "playlists": pl_names},
+                 "playlists": pl_names, "electronic": ELECTRONIC},
         "stats": stats,
         "communities": comm_info,
         "artists": [{"n": r["name"], "c": len(r["songs"]), "g": r["genre"], "t": r["tags"][:5],
                      "s": r["subs"], "co": r["country"], "p": r["plays"], "cm": r.get("community", -1), "pl": r["playlist"],
-                     "gi": int(r["genre_inferred"])}
+                     "gi": int(r["genre_inferred"]), "id": None if r["key"].startswith("n:") else r["key"]}
                     for r in (artists[k] for k in keys)],
         "edges": [[kidx[a], kidx[b], e["feat"], e["related"], e["tags"]] for (a, b), e in edges.items()],
         "songs": [{"t": s["title"], "a": [kidx[k] for k in s["keys"]], "al": s.get("album"), "y": s.get("year"),
                    "d": s.get("duration_s"), "e": int(s["explicit"]), "g": s["genre"], "p": s["plays"],
                    "l": (s["likedAt"] or "")[:10] or None, "o": s["position"], "ty": s["type"],
-                   "v": s["videoId"], "av": int(s["available"]), "pl": s["pl"]}
+                   "v": s["videoId"], "av": int(s["available"]), "pl": s["pl"], "th": _thumb(s.get("thumb"))}
                   for s in songs],
+        "plays": {"p": play_list, "x": [[ti, a, by_name.get(a.casefold(), -1)] for ti, a in play_extra]},
+        "recs": [[v["name"], v["id"], round(v["score"], 1), rec_genre(v["via"]),
+                  [kidx[k] for k in sorted(v["via"], key=lambda k: -len(artists[k]["songs"]))[:8]]] for v in recs],
     }
-    for name in ("index.html", "app.js", "i18n.js", "style.css"):
-        shutil.copy(WEB / name, out_dir / name)
+    for f in WEB.iterdir():
+        if f.is_file():
+            shutil.copy(f, out_dir / f.name)
     (out_dir / "data.js").write_text("window.DATA = " + json.dumps(payload, ensure_ascii=False) + ";\n",
                                      encoding="utf-8")
     _write_csv(out_dir / "songs.csv", songs, pl_names)

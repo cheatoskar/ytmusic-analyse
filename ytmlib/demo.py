@@ -45,6 +45,7 @@ def run() -> None:
             tags_cache[name.casefold()] = {"name": name, "lastfm": tg,
                                            "mb": {"found": True, "country": country, "kind": "Person", "tags": tg}}
             yt_cache[aid] = {"name": name, "subscribers": int(rng.lognormvariate(11.5, 2)), "related": []}
+    external = {sc: [{"id": f"UCext{sc[:4]}{i:02d}".ljust(24, "x"), "name": _name(rng)} for i in range(5)] for sc in SCENES}
     by_scene = {}
     for a in artists:
         by_scene.setdefault(a["scene"], []).append(a)
@@ -53,6 +54,8 @@ def run() -> None:
         if rng.random() < 0.15:  # gelegentlich szeneuebergreifend
             peers += rng.sample(artists, 3)
         yt_cache[a["id"]]["related"] = [{"id": p["id"], "name": p["name"]} for p in rng.sample(peers, min(4, len(peers)))]
+        # Verwandte Kuenstler ausserhalb der Likes: Stoff fuer die Empfehlungen
+        yt_cache[a["id"]]["related"] += rng.sample(external[a["scene"]], 2)
 
     songs, albums = [], {}
     total = 640
@@ -97,6 +100,11 @@ def run() -> None:
             s = rng.choice(favs) if rng.random() < 0.6 else rng.choice(songs)
             plays.append({"v": s["videoId"], "t": t.isoformat(), "title": s["title"], "artist": s["artists"][0]["name"]})
     plays.sort(key=lambda p: p["t"])
+    stamp = datetime(2026, 1, 1, tzinfo=timezone.utc).isoformat()
+    moods = {"Gym": ("us-rap", "deutschrap", "techno"), "Chill Abend": ("rnb", "indie", "film"), "Roadtrip": ("rock", "pop", "house")}
+    for name, scenes_ in moods.items():
+        picks = [s for s in songs if any(s["artists"][0]["id"].startswith(f"UC{sc[:4]}") for sc in scenes_)]
+        playlists[name] = [[s["videoId"], stamp] for s in rng.sample(picks, min(len(picks), 70))]
     like_start = datetime(2019, 1, 1, tzinfo=timezone.utc)
     span = (datetime(2026, 10, 1, tzinfo=timezone.utc) - like_start).total_seconds()
     for s in songs:

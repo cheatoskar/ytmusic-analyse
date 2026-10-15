@@ -7,87 +7,121 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <div>
-      <h1><span data-i18n="title">Your Liked Songs</span> <span id="demo" class="badge" hidden>DEMO</span></h1>
-      <div class="meta" id="meta"></div>
+  <aside class="side" aria-label="Navigation">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><path d="M12 22.5a3 3 0 1 1-2-2.83V10l10-2.5v11a3 3 0 1 1-2-2.83V10.6l-6 1.5z" fill="#fff"/></svg>
+      <div><b data-i18n="title">Your Liked Songs</b> <span id="demo" class="badge" hidden>DEMO</span><div class="meta" id="meta"></div></div>
     </div>
-    <nav role="tablist">
-      <button role="tab" data-tab="overview" aria-selected="true" data-i18n="tab_overview">Overview</button>
-      <button role="tab" data-tab="network" data-i18n="tab_network">Network map</button>
-      <button role="tab" data-tab="bubbles" data-i18n="tab_bubbles">Bubble map</button>
-      <button role="tab" data-tab="table" data-i18n="tab_table">All songs</button>
-      <button class="btn" id="lang" data-i18n="lang_switch" data-i18n-title="lang_title">DE</button>
-      <button class="btn" id="theme" data-i18n-title="theme_title" title="Toggle light/dark">◐</button>
+    <nav id="nav">
+      <div class="navgroup" data-i18n="nav_g_insights">Insights</div>
+      <a href="#home" data-view="home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span data-i18n="nav_home">Home</span></a>
+      <a href="#taste" data-view="taste"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8v8M19 6v12M8.5 5v14M15.5 9v6"/></svg><span data-i18n="nav_taste">Taste</span></a>
+      <a href="#time" data-view="time"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="nav_time">Time travel</span></a>
+      <a href="#listen" data-view="listen"><svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="5" height="7" rx="2"/><rect x="16" y="14" width="5" height="7" rx="2"/></svg><span data-i18n="nav_listen">Listening</span></a>
+      <a href="#discover" data-view="discover"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg><span data-i18n="nav_discover">Discover</span></a>
+      <div class="navgroup" data-i18n="nav_g_maps">Maps</div>
+      <a href="#network" data-view="network"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8.3 7 15.6 7.6M7 8.3l1.4 7.3M16.6 10 10.8 16.3"/></svg><span data-i18n="nav_network">Network</span></a>
+      <a href="#bubbles" data-view="bubbles"><svg viewBox="0 0 24 24"><circle cx="9" cy="10" r="6"/><circle cx="17" cy="16" r="4"/><circle cx="17.5" cy="6" r="2"/></svg><span data-i18n="nav_bubbles">Bubbles</span></a>
+      <div class="navgroup" data-i18n="nav_g_data">Library</div>
+      <a href="#artists" data-view="artists"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span data-i18n="nav_artists">Artists</span></a>
+      <a href="#songs" data-view="songs"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span data-i18n="nav_songs">All songs</span></a>
     </nav>
-  </header>
+    <div class="side-foot">
+      <button class="btn ghost" id="lang" data-i18n="lang_switch" data-i18n-title="lang_title">DE</button>
+      <button class="btn ghost" id="theme" data-i18n-title="theme_title" title="Toggle light/dark" aria-label="Theme">◐</button>
+    </div>
+  </aside>
 
-  <main id="main">
-    <section id="overview"></section>
+  <div class="content">
+    <header class="topbar">
+      <div class="toprow">
+        <button class="iconbtn" id="menu" aria-label="Menu">☰</button>
+        <button class="searchbtn" id="searchBtn"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span data-i18n="search_all">Search artists, songs, styles …</span><kbd id="kbd">Ctrl K</kbd></button>
+      </div>
+      <div class="filters" id="filters" role="group" data-i18n-title="filters"></div>
+    </header>
 
-    <section id="network" hidden>
-      <div class="stage" id="netStage">
-        <canvas id="net"></canvas>
-        <div class="panel">
-          <label for="netSearch" data-i18n="search_artist">Find artist</label>
-          <input type="search" id="netSearch" list="artistList" data-i18n-ph="search_ph" placeholder="Name …">
-          <datalist id="artistList"></datalist>
-          <label for="netColor" data-i18n="color_by">Color by</label>
-          <select id="netColor">
-            <option value="genre" data-i18n="opt_genre">Style</option>
-            <option value="community" data-i18n="opt_world">Music world (cluster)</option>
-            <option value="playlist" data-i18n="opt_playlist">Your playlist</option>
-          </select>
-          <label data-i18n="connections">Connections</label>
-          <div class="row"><input type="checkbox" id="eFeat" checked><label for="eFeat" style="margin:0" data-i18n="e_feat">Features</label></div>
-          <div class="row"><input type="checkbox" id="eRel" checked><label for="eRel" style="margin:0" data-i18n="e_rel">Related</label></div>
-          <div class="row"><input type="checkbox" id="eTag"><label for="eTag" style="margin:0" data-i18n="e_tag">Similar tags</label></div>
-          <label for="netMin" data-i18n-html="min_songs">At least <b id="netMinV">1</b> song(s)</label>
-          <input type="range" id="netMin" min="1" max="10" value="1" style="width:100%">
-          <div class="legend" id="netLegend"></div>
-          <button class="btn" id="netFit" style="margin-top:8px" data-i18n="fit">Fit to view</button>
-          <div class="hint" data-i18n="net_hint"></div>
+    <main id="main">
+      <section id="v-home"></section>
+      <section id="v-taste" hidden></section>
+      <section id="v-time" hidden></section>
+      <section id="v-listen" hidden></section>
+      <section id="v-discover" hidden></section>
+
+      <section id="v-network" hidden>
+        <div class="stage" id="netStage">
+          <canvas id="net"></canvas>
+          <div class="panel">
+            <label for="netSearch" data-i18n="search_artist">Find artist</label>
+            <input type="search" id="netSearch" list="artistList" data-i18n-ph="search_ph" placeholder="Name …">
+            <datalist id="artistList"></datalist>
+            <label for="netColor" data-i18n="color_by">Color by</label>
+            <select id="netColor">
+              <option value="genre" data-i18n="opt_genre">Style</option>
+              <option value="community" data-i18n="opt_world">Music world (cluster)</option>
+              <option value="playlist" data-i18n="opt_playlist">Your playlist</option>
+            </select>
+            <label data-i18n="connections">Connections</label>
+            <div class="row"><input type="checkbox" id="eFeat" checked><label for="eFeat" data-i18n="e_feat">Features</label></div>
+            <div class="row"><input type="checkbox" id="eRel" checked><label for="eRel" data-i18n="e_rel">Related</label></div>
+            <div class="row"><input type="checkbox" id="eTag"><label for="eTag" data-i18n="e_tag">Similar tags</label></div>
+            <label for="netMin" data-i18n-html="min_songs">At least <b id="netMinV">1</b> song(s)</label>
+            <input type="range" id="netMin" min="1" max="10" value="1">
+            <div class="hint strong" id="netFilter" hidden></div>
+            <div class="legend col" id="netLegend"></div>
+            <button class="btn" id="netFit" data-i18n="fit">Fit to view</button>
+            <div class="hint" data-i18n="net_hint"></div>
+          </div>
+          <div class="panel detail" id="netDetail" hidden></div>
         </div>
-        <div class="panel detail" id="netDetail" hidden></div>
-      </div>
-    </section>
+      </section>
 
-    <section id="bubbles" hidden>
-      <div class="stage" id="packStage">
-        <svg id="pack"></svg>
-        <div class="panel">
-          <label for="packGroup" data-i18n="group_by">Group by</label>
-          <select id="packGroup">
-            <option value="genre" data-i18n="g_genre">Style → artist → song</option>
-            <option value="community" data-i18n="g_world">Music world → artist → song</option>
-            <option value="playlist" data-i18n="g_playlist">Playlist → artist → song</option>
-          </select>
-          <label for="packSize" data-i18n="bubble_size">Bubble size</label>
-          <select id="packSize">
-            <option value="count" data-i18n="s_count">Equal</option>
-            <option value="plays" data-i18n="s_plays">Plays</option>
-            <option value="dur" data-i18n="s_dur">Song length</option>
-          </select>
-          <div class="legend" id="packLegend"></div>
-          <div class="hint" data-i18n="pack_hint"></div>
+      <section id="v-bubbles" hidden>
+        <div class="stage" id="packStage">
+          <svg id="pack"></svg>
+          <div class="panel">
+            <label for="packGroup" data-i18n="group_by">Group by</label>
+            <select id="packGroup">
+              <option value="genre" data-i18n="g_genre">Style → artist → song</option>
+              <option value="community" data-i18n="g_world">Music world → artist → song</option>
+              <option value="playlist" data-i18n="g_playlist">Playlist → artist → song</option>
+            </select>
+            <label for="packSize" data-i18n="bubble_size">Bubble size</label>
+            <select id="packSize">
+              <option value="count" data-i18n="s_count">Equal</option>
+              <option value="plays" data-i18n="s_plays">Plays</option>
+              <option value="dur" data-i18n="s_dur">Song length</option>
+            </select>
+            <div class="legend col" id="packLegend"></div>
+            <div class="hint" data-i18n="pack_hint"></div>
+          </div>
+          <div class="crumb" id="crumb"></div>
         </div>
-        <div class="crumb" id="crumb"></div>
-      </div>
-    </section>
+      </section>
 
-    <section id="table" hidden>
-      <div class="tablebar">
-        <input type="search" id="q" data-i18n-ph="table_ph">
-        <span id="qn" class="meta"></span>
-      </div>
-      <div class="tablewrap"><table id="tbl"></table></div>
-    </section>
-  </main>
-  <div id="tip"></div>
+      <section id="v-artists" hidden></section>
+      <section id="v-songs" hidden></section>
+    </main>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" tabindex="-1" aria-label="Artist" hidden></aside>
+  <div class="palette" id="palette" hidden>
+    <div class="palbox" role="dialog" aria-modal="true">
+      <input id="palInput" type="search" autocomplete="off" data-i18n-ph="search_all" aria-controls="palResults">
+      <ul id="palResults" role="listbox"></ul>
+      <div class="palfoot" data-i18n="pal_hint">↑↓ choose · Enter open · Esc close</div>
+    </div>
+  </div>
+  <div id="tip" role="tooltip"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
   <script src="data.js"></script>
   <script src="i18n.js"></script>
+  <script src="core.js"></script>
+  <script src="charts.js"></script>
+  <script src="pages.js"></script>
+  <script src="maps.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
